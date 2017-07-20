@@ -188,4 +188,5 @@ Lexical Dictionaries*
 License
 -------
 
-
+This project is licensed under the GNU GPL v3 license. See the
+[LICENSE](LICENSE) file for details.
