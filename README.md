@@ -143,7 +143,7 @@ Download more data
 
 We provide scripts to download online definitions and generate strong/weak pairs
 based on these definitions. More information and full documentation can be found
-[here](dict-dl/README.md).
+[here](dict-dl/).
 
 ### Wikipedia
 
