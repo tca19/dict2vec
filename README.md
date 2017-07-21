@@ -27,7 +27,7 @@ with **wget**, **bzip2**, **perl** and **bash** installed.
 Run the code
 ------------
 
-Before running the example script, open `demo-train.sh` and modify the line 43
+Before running the example script, open `demo-train.sh` and modify the line 62
 so the variable THREADS is equal to the number of cores in your machine. By
 default, it is equal to 8, so if your machine only has 4 cores, update it to be
 :
@@ -143,7 +143,7 @@ Download more data
 
 We provide scripts to download online definitions and generate strong/weak pairs
 based on these definitions. More information and full documentation can be found
-[here](doc/dictdl-documentation.md).
+[here](dict-dl/README.md).
 
 ### Wikipedia
 

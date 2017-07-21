@@ -23,7 +23,7 @@ CC = gcc
 #
 # -lm : for pow() and exp()
 # -pthread : for multithreading
-# -Ofast : code optimisation
+# -Ofast : code optimization
 # -funroll-loops : unroll loops that can be determined at compile time
 # -Wall -Wextra -Wno-unused-result : turn on warning messages
 CFLAGS = -std=c11 -lm -pthread -Ofast -funroll-loops -Wall -Wextra -Wno-unused-result
