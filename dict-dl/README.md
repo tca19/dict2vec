@@ -79,7 +79,7 @@ regroup the 4 definitions together for each word), run :
 $ ./clean_definitions.py -d 1000-words-definitions.txt -v vocab.txt
 ```
 
-### Options
+#### Options
 
 ```
  -d, --definitions  FILE         File containing the fetched definitions from
@@ -104,7 +104,7 @@ run :
 $ ./generate_pairs.py -d all-definitions-cleaned.txt -e vectors.vec -K 5
 ```
 
-### Options
+#### Options
 
 ```
  -d, --definitions FILE          File containing word definitions
