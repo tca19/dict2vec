@@ -50,14 +50,16 @@ This will :
   * train word embeddings with a dimension of 100
   * evaluate the embeddings on 11 word similarity datasets
 
-To directly compile the code and interact with the sotfware, run the produced
-binary without any arguments. Full documentation and description of each
-possible parameters are available [here](doc/dict2vec-documentation.md).
+To directly compile the code and interact with the sotfware, run :
 
 ```bash
 $ make
 $ ./dict2vec
 ```
+
+**__Full documentation and a description of each possible parameters are
+displayed when you run `./dict2vec` without any arguments.__**
+
 
 Evaluate word embeddings
 ------------------------

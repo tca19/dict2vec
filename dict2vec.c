@@ -856,7 +856,7 @@ void train()
 	printf("Starting training using file %s\n", input_file);
 	read_vocab();
 
-	// TODO
+	// we need to save the starting alpha to update alpha during learning
 	starting_alpha = alpha;
 
 	// instantiate the network
@@ -918,7 +918,7 @@ void print_help()
 {
 	printf(
 	"Dict2vec: Learning Word Embeddings using Lexical Dictionaries\n"
-	"Author: Me\n\n"
+	"Author: Julien Tissier <30314448+tca19@users.noreply.github.com>\n\n"
 
 	"Options:\n"
 	"  -input <file>\n"
@@ -957,7 +957,11 @@ void print_help()
 	"  -save-each-epoch <int>\n"
 	"    Save the embeddings after each epoch; 0 (off, default), 1 (on)\n\n"
 	"\nUsage:\n"
-	"./dict2vec -train wikipedia.txt ...TODO\n\n"
+	"./dict2vec -input data/enwiki-50M -output data/enwiki-50M \\\n"
+	"-strong-file data/strong-pairs.txt -weak-file data/weak-pairs.txt \\\n"
+	"-size 100 -window 5 -sample 1e-4 -min-count 5 -negative 5 \\\n"
+	"-strong-draws 4 -beta-strong 0.8 -weak-draws 5 -beta-weak 0.45 \\\n"
+	"-alpha 0.025 -threads 8 -epoch 5 -save-each-epoch 0\n\n"
 	);
 }
 
