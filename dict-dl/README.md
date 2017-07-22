@@ -79,10 +79,14 @@ regroup the 4 definitions together for each word), run :
 $ ./clean_definitions.py -d 1000-words-definitions.txt -v vocab.txt
 ```
 
-The options are :
+### Options
 
-  * `-d <file>`: file with the fetched definitions from previous script
-  * `-v <file>`: file with a list of words you want to keep (the vocabulary)
+```
+ -d, --definitions  FILE         File containing the fetched definitions from
+                                 previous script
+ -v, --vocab FILE                Remove all words that are not in this
+                                 vocabulary file
+```
 
 This will produce a file named all-definitions-cleaned.txt where the first
 word of each line is the fetched word, and the rest of the line are the words
@@ -100,11 +104,14 @@ run :
 $ ./generate_pairs.py -d all-definitions-cleaned.txt -e vectors.vec -K 5
 ```
 
-The options are :
+### Options
 
-  * `-d <file>`: file with the cleaned definitions from previous script
-  * `-e <file>`: file the word embeddings used to compute K closest neighbours
-  * `-K <int>`: number of neighbours to use for additional strong pairs
-  * `[-sf <file>] :` [optional] output filename for saving strong pairs
-  * `[-wf <file>] :` [optional] output filename for saving weak pairs
-
+```
+ -d, --definitions FILE          File containing word definitions
+ -e, --embedding FILE            File containing the word embeddings used to
+                                 compute the K closest neighbours
+ -K NUMBER                       Number of artificially generated strong pairs
+                                 for each real strong pairs
+ -sf, --strong-file FILE         Output filename for saving strong pairs
+ -wf, --weak-file FILE           Output filename for saving weak pairs
+```
