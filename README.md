@@ -57,8 +57,8 @@ $ make
 $ ./dict2vec
 ```
 
-**_Full description of each possible parameters is displayed when you run
-`./dict2vec` without any arguments._**
+**_Full documentation of each possible parameters is displayed when you run_**
+`./dict2vec` **_without any arguments._**
 
 
 Evaluate word embeddings
