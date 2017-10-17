@@ -130,6 +130,12 @@ dimension 300 were trained on the full corpus. First line is composed of (number
 of words / dimension). Each following line contain the word and all its space
 separated vector values.
 
+You need to extract the embeddings before using them. Use the following command
+to do so :
+```bash
+$ tar xvjf dict2vec100.tar.bz2
+```
+
 If you use these word embeddings, please cite the paper as explained in section
 [Cite this paper](#cite-this-paper).
 
@@ -181,7 +187,9 @@ Lexical Dictionaries*
 @inproceedings{tissier2017dict2vec,
   title     = {Dict2vec : Learning Word Embeddings using Lexical Dictionaries},
   author    = {Tissier, Julien and Gravier, Christophe and Habrard, Amaury},
-  booktitle = {Proceedings of EMNLP},
+  booktitle = {Proceedings of the 2017 Conference on Empirical Methods in
+               Natural Language Processing},
+  pages     = {254--263},
   year      = {2017}
 }
 ```
