@@ -187,8 +187,7 @@ Lexical Dictionaries*
 @inproceedings{tissier2017dict2vec,
   title     = {Dict2vec : Learning Word Embeddings using Lexical Dictionaries},
   author    = {Tissier, Julien and Gravier, Christophe and Habrard, Amaury},
-  booktitle = {Proceedings of the 2017 Conference on Empirical Methods in
-               Natural Language Processing},
+  booktitle = {Proceedings of the 2017 Conference on Empirical Methods in Natural Language Processing},
   pages     = {254--263},
   year      = {2017}
 }
