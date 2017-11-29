@@ -23,17 +23,17 @@ from urllib.request import urlopen
 from urllib.error import HTTPError
 import re
 
-def downloadCambridge(word):
+def download_cambridge(word):
     URL = "http://dictionary.cambridge.org/dictionary/english/" + word
     try:
         html = urlopen(URL).read().decode('utf-8')
 
-        # Definitions are in a <b> tag that has the class "def"
-        pattern = re.compile('<b class="def">(.*?)</b>',
-                                re.IGNORECASE|re.DOTALL)
+        # definitions are in a <b> tag that has the class "def"
+        pattern = re.compile('<b class="def">(.*?)</b>', re.I|re.S)
         defs = re.findall(pattern, html)
-        # Need to clean definitions of <a> and <span> tags.
-        cleaner = re.compile('<.+?>', re.IGNORECASE|re.DOTALL)
+        # need to clean definitions of <a> and <span> tags. Use cleaner to
+        # replace these tags by empty string
+        cleaner = re.compile('<.+?>', re.I|re.S)
         return [ re.sub(cleaner, '', x) for x in defs ]
 
     except HTTPError:
@@ -46,34 +46,37 @@ def downloadCambridge(word):
         return -1
 
 
-def downloadDictionary(word):
+def download_dictionary(word):
     URL = "http://www.dictionary.com/browse/" + word
     try:
         html = urlopen(URL).read().decode('utf-8')
 
-        # Definitions are in a big block <div class="def-list">, but
+        # definitions are in a big block <div class="def-list">, but
         # only the first block contains interesting definitions.
         # Can't use </div> for regex ending because there are some <div>
         # inside definitions, so i use the next big div.
         block_p = re.compile('<div class="def-list">(.*?)<div class="tail-wrapper">',
-                                re.IGNORECASE|re.DOTALL)
+                             re.I|re.S)
         block_one = re.findall(block_p, html)[0]
 
-        # Inside this block, all definitions are in <div class="def-content">
+        # inside this block, all definitions are in <div class="def-content">.
         # We stop at class="def-block" which is a sentence example.
-        defs_p = re.compile('<div class="def-content">(.+?)<div class="def-block', re.IGNORECASE|re.DOTALL)
+        defs_p = re.compile('<div class="def-content">(.+?)<div class="def-block',
+                            re.I|re.S)
         defs = re.findall(defs_p, block_one)
 
-        # Sometimes there are no <div class="def-clock"> after the definition, so no
-        # definitions have been catched. But we can use the end of </div>
+        # sometimes there are no <div class="def-clock"> after the definition,
+        # so no definitions have been caught. But we can use the end of </div>
         # to catch them (ex: for the word 'wick').
         if len(defs) == 0:
-            defs_p = re.compile('<div class="def-content">(.+?)</div>', re.IGNORECASE|re.DOTALL)
+            defs_p = re.compile('<div class="def-content">(.+?)</div>',
+                                re.I|re.S)
             defs = re.findall(defs_p, block_one)
 
-        # Need to clean definitions of <a> and <span> tags.
-        # Use .strip() to also clean some \r or \n.
-        cleaner = re.compile('<.+?>', re.IGNORECASE|re.DOTALL)
+        # need to clean definitions of <a> and <span> tags. Use cleaner to
+        # replace these tags by empty string, Use .strip() to also clean some
+        # \r or \n.
+        cleaner = re.compile('<.+?>', re.I|re.S)
         return [ re.sub(cleaner, '', x).strip() for x in defs ]
 
     except HTTPError:
@@ -151,8 +154,8 @@ def downloadOxford(word):
 
 
 MAP_DICT = {
-    "Cam": downloadCambridge,
-    "Dic": downloadDictionary,
+    "Cam": download_cambridge,
+    "Dic": download_dictionary,
     "Col": downloadCollins,
     "Oxf": downloadOxford,
 }
@@ -178,12 +181,17 @@ def downloadCleaned(dict_name, word):
     return words
 
 if __name__ == '__main__':
-    print("Cambridge")
-    print(downloadCleaned("Cam", 'wick'))
-    print("dictionary.com")
-    print(downloadCleaned("Dic", 'wick'))
-    print("Collins")
-    print(downloadCleaned("Col", 'change'))
-    print("Oxford")
-    print(downloadCleaned("Oxf", 'car'))
+    print(download_dictionary("wick"))
+    print()
+    print(download_dictionary("car"))
+    print()
+    print(download_dictionary("change"))
+#    print("Cambridge")
+#    print(downloadCleaned("Cam", 'wick'))
+#    print("dictionary.com")
+#    print(downloadCleaned("Dic", 'wick'))
+#    print("Collins")
+#    print(downloadCleaned("Col", 'change'))
+#    print("Oxford")
+#    print(downloadCleaned("Oxf", 'car'))
 
