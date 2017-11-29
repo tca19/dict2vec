@@ -79,8 +79,7 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument("-v", "--vocab", help="""file containing a list of
                         words. The script will remove all words in definitions
-                        that are not in this vocab""", default="",
-                        required=True)
+                        that are not in this vocab""", default="")
 
     args = parser.parse_args()
 
