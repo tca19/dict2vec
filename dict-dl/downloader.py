@@ -104,7 +104,8 @@ def downloadCollins(word):
         # so we can't use the </span> to get the entire definition. We need
         # to add the <div to make sure we are capturing the definition until
         # its end.
-        defs_p = re.compile('<span class="def">(.+?)</span><div', re.IGNORECASE|re.DOTALL)
+        # Update 29/11/17 : same thing but now surrounded in a <div> and no longer a <span>
+        defs_p = re.compile('<div class="def">(.+?)<div', re.IGNORECASE|re.DOTALL)
         defs = re.findall(defs_p, block_one)
 
         # Need to clean definitions of <a> and <span> tags.
