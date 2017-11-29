@@ -34,9 +34,11 @@ import sys
 globalStart = time.time()
 exitFlag = 0
 counterLock = Lock()
-counter = {"Cam": 0, "Dic": 0, "Col": 0, "Oxf": 0}
+request_counter  = {"Cam": 0, "Dic": 0, "Col": 0, "Oxf": 0}
+download_counter = {"Cam": 0, "Dic": 0, "Col": 0, "Oxf": 0}
 
-class threadDown(Thread):
+
+class ThreadDown(Thread):
     def __init__(self, dict_name, data_queue, res_queue):
         Thread.__init__(self)
         self.dict_name  = dict_name
@@ -47,16 +49,24 @@ class threadDown(Thread):
         while not exitFlag:
             if not self.data_queue.empty():
                 word = self.data_queue.get()
-                result = downloadCleaned(self.dict_name, word)
+                result = download_word_definition(self.dict_name, word)
                 counterLock.acquire()
-                counter[self.dict_name] += 1
+                request_counter[self.dict_name] += 1
                 counterLock.release()
 
                 if len(result) > 0:
+                    # if len > 0, the downloaded definition contains at least
+                    # one word, we can add 1 to the number of downloads
+                    counterLock.acquire()
+                    download_counter[self.dict_name] += 1
+                    counterLock.release()
+
+                    # then add the fetched definition, the word and the
+                    # dictionary used as a message for ThreadWrite
                     self.res_queue.put("{} {} {}".format(self.dict_name, word,
                                                         " ".join(result)))
 
-class threadWrite(Thread):
+class ThreadWrite(Thread):
     def __init__(self, filename, msg_queue):
         Thread.__init__(self)
         self.msg_queue = msg_queue
@@ -117,7 +127,7 @@ for w in vocabulary:
 ##
 
 # Start the writer thread.
-thread_writer = threadWrite(output_fn, queue_msg)
+thread_writer = ThreadWrite(output_fn, queue_msg)
 thread_writer.start()
 threads.append(thread_writer)
 
@@ -129,13 +139,13 @@ NB_THREAD = cpu_count() * 3
 
 # Start all the download threads.
 for x in range(NB_THREAD):
-    thread_Cam = threadDown("Cam", queue_Cam, queue_msg)
+    thread_Cam = ThreadDown("Cam", queue_Cam, queue_msg)
     thread_Cam.start()
-    thread_Dic = threadDown("Dic", queue_Dic, queue_msg)
+    thread_Dic = ThreadDown("Dic", queue_Dic, queue_msg)
     thread_Dic.start()
-    thread_Col = threadDown("Col", queue_Col, queue_msg)
+    thread_Col = ThreadDown("Col", queue_Col, queue_msg)
     thread_Col.start()
-    thread_Oxf = threadDown("Oxf", queue_Oxf, queue_msg)
+    thread_Oxf = ThreadDown("Oxf", queue_Oxf, queue_msg)
     thread_Oxf.start()
 
     threads.append(thread_Cam)
@@ -158,7 +168,7 @@ while not queue_msg.empty() or \
     # The expected number of fetched words is the number of words
     # in the vocabulary times 4 because we are using 4 dictionaries.
     # The number of fetched words is simply the sum of each counter.
-    tmp = sum(counter.values()) / (4.0 * vocabulary_size) * 100
+    tmp = sum(request_counter.values()) / (4.0 * vocabulary_size) * 100
     tmp = int(tmp) + 1
     if tmp != percent:
         print('\r{0}%'.format(tmp), end="")
@@ -168,7 +178,7 @@ exitFlag = 1
 
 # We only wait thread_writer to join because this is the most important
 # thread in the code and we are only interested in what the program
-# is writing. And sometimes, some threadDown are stuck in a
+# is writing. And sometimes, some ThreadDown are stuck in a
 # connection timeout and cause the entire code to freeze and never
 # terminate.
 print("\nWaiting thread_writer to join.")
@@ -179,8 +189,13 @@ thread_writer.join()
 # STEP 5 : get total time and some results infos.
 ##
 
-print("Total time:", time.time() - globalStart, "sec")
-print("Words fetched:", counter)
-print("Vocabulary size:", vocabulary_size)
+print("Total time:", time.time() - globalStart, "sec\n")
+print("S T A T S (# successful download / # requests)")
+print("==============================================")
+for dic in sorted(request_counter.keys()):
+    print("{}   {}/{}  ({:.1f}%)".format(dic, download_counter[dic],
+      request_counter[dic], download_counter[dic] * 100 / request_counter[dic]))
+
+print("\nVocabulary size:", vocabulary_size)
 print("Results written in", output_fn)
 
