@@ -130,18 +130,27 @@ def download_collins(word):
         return -1
 
 
-def downloadOxford(word):
-    URL = "http://www.oxforddictionaries.com/definition/english/"+ word
+def download_oxford(word):
+    URL = "http://en.oxforddictionaries.com/definition/"+ word
     try:
         html = urlopen(URL).read().decode('utf-8')
 
-        # Definitions are in a <span> tag that has a class "ind"
-        pattern = re.compile('<span class="ind">(.*?)</span>',
-                                re.IGNORECASE|re.DOTALL)
-        defs = re.findall(pattern, html)
+        # definitions (for every senses of a word) are all inside a <section>
+        # tag that has the class "gramb"
+        block_p = re.compile('<section class="gramb">(.*?)</section>', re.I|re.S)
+        blocks  = re.findall(block_p, html)
 
-        # Need to clean definitions of <a> and <span> tags.
-        cleaner = re.compile('<.+?>', re.IGNORECASE|re.DOTALL)
+        # inside these <section>, definitions are in a <span class="ind">. One
+        # <section> block can contain many definitions so we need to first
+        # combine all <section>, then extract the <span> with only one call to
+        # findall()
+        pattern = re.compile('<span class="ind">(.*?)</span>', re.I|re.S)
+        blocks  = ' '.join(blocks)
+        defs    = re.findall(pattern, blocks)
+
+        # need to clean definitions of <a> and <span> tags. Use cleaner to
+        # replace these tags by empty string
+        cleaner = re.compile('<.+?>', re.I|re.S)
         return [ re.sub(cleaner, '', x) for x in defs ]
 
     except HTTPError:
@@ -160,7 +169,7 @@ MAP_DICT = {
     "Cam": download_cambridge,
     "Dic": download_dictionary,
     "Col": download_collins,
-    "Oxf": downloadOxford,
+    "Oxf": download_oxford,
 }
 
 STOPSWORD = set()
@@ -184,11 +193,11 @@ def downloadCleaned(dict_name, word):
     return words
 
 if __name__ == '__main__':
-    print(download_collins("wick"))
+    print(download_oxford("wick"))
     print()
-    print(download_collins("car"))
+#    print(download_oxford("car"))
     print()
-    print(download_collins("change"))
+    print(download_oxford("change"))
 #    print("Cambridge")
 #    print(downloadCleaned("Cam", 'wick'))
 #    print("dictionary.com")
