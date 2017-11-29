@@ -91,29 +91,32 @@ def download_dictionary(word):
         return -1
 
 
-def downloadCollins(word):
+def download_collins(word):
     URL = "http://www.collinsdictionary.com/dictionary/english/" + word
     try:
         html = urlopen(URL).read().decode('utf-8')
 
-        # Definitions are in the first big block <div class="hom">.
-        # Use the next <div> for ending regex.
-        block_p = re.compile('<div class="hom">(.*?)<div class="div copyright">',
-                                re.IGNORECASE|re.DOTALL)
+        # definitions are in the big block <div class="content [...] br">.
+        # Use the next <div> with "copyright" for ending regex.
+        block_p = re.compile(
+          '<div class="content .*? br">(.*?)<div class="div copyri', re.I|re.S)
         block_one = re.findall(block_p, html)[0]
 
-        # Inside this block, all definitions are in <span class="def">...</span>.
+        # inside this block, definitions are in <span class="def">...</span>
         # Update 24/01/17 : now the fetched word is surrounded by <span></span>
         # so we can't use the </span> to get the entire definition. We need
         # to add the <div to make sure we are capturing the definition until
         # its end.
-        # Update 29/11/17 : same thing but now surrounded in a <div> and no longer a <span>
-        defs_p = re.compile('<div class="def">(.+?)<div', re.IGNORECASE|re.DOTALL)
+        # Update 29/11/17 : definitions are now in <div class="def">...</div>
+        # instead of <span class="def">...</span>
+        defs_p = re.compile('<div class="def">(.+?)</div>', re.I|re.S)
         defs = re.findall(defs_p, block_one)
 
-        # Need to clean definitions of <a> and <span> tags.
-        cleaner = re.compile('<.+?>', re.IGNORECASE|re.DOTALL)
-        return [ re.sub(cleaner, '', x) for x in defs ]
+        # need to clean definitions of <a> and <span> tags. Use cleaner to
+        # replace these tags by empty string, Use .strip() to also clean some
+        # \r or \n, and replace because sometimes there are \n inside a sentence
+        cleaner = re.compile('<.+?>', re.I|re.S)
+        return [ re.sub(cleaner, '', x).replace('\n', ' ').strip() for x in defs ]
 
     except HTTPError:
         return -1
@@ -156,7 +159,7 @@ def downloadOxford(word):
 MAP_DICT = {
     "Cam": download_cambridge,
     "Dic": download_dictionary,
-    "Col": downloadCollins,
+    "Col": download_collins,
     "Oxf": downloadOxford,
 }
 
@@ -181,11 +184,11 @@ def downloadCleaned(dict_name, word):
     return words
 
 if __name__ == '__main__':
-    print(download_dictionary("wick"))
+    print(download_collins("wick"))
     print()
-    print(download_dictionary("car"))
+    print(download_collins("car"))
     print()
-    print(download_dictionary("change"))
+    print(download_collins("change"))
 #    print("Cambridge")
 #    print(downloadCleaned("Cam", 'wick'))
 #    print("dictionary.com")
