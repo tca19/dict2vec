@@ -177,33 +177,46 @@ with open('stopwords.txt') as f:
     for line in f:
         STOPSWORD.add(line.strip().lower())
 
-def downloadCleaned(dict_name, word):
-    words = []
-    download = MAP_DICT[dict_name]
-    res = download(word)
-    if res == -1:
+def download_word_definition(dict_name, word, clean=True):
+    """
+    Download the definition(s) for word from the dictionary dict_name. If clean
+    is True, clean the definition before returning it (remove stopwords and non
+    letters characters in definition).
+    """
+    words      = []
+    download   = MAP_DICT[dict_name]
+    res        = download(word)
+    if res == -1: # no definition fetched
         res = []
 
-    for definition in res:
+    for definition in res: # there can be more than one definition fetched
+        # simply add the entire definition is no cleaning needed
+        if not clean:
+            words.append(definition)
+            continue
+
         for word in definition.split():
             word = ''.join([c.lower() for c in word
                          if c.isalpha() and ord(c) < 128])
             if not word in STOPSWORD:
                 words.append(word)
+
     return words
 
 if __name__ == '__main__':
-    print(download_oxford("wick"))
-    print()
-#    print(download_oxford("car"))
-    print()
-    print(download_oxford("change"))
-#    print("Cambridge")
-#    print(downloadCleaned("Cam", 'wick'))
-#    print("dictionary.com")
-#    print(downloadCleaned("Dic", 'wick'))
-#    print("Collins")
-#    print(downloadCleaned("Col", 'change'))
-#    print("Oxford")
-#    print(downloadCleaned("Oxf", 'car'))
+    print("Cambridge")
+    print(download_word_definition("Cam", "wick"))
+    print("\ndictionary.com")
+    print(download_word_definition("Dic", 'wick'))
+    print("\nCollins")
+    print(download_word_definition("Col", 'change'))
+    print("\nOxford")
+    print(download_word_definition("Oxf", 'wick'))
 
+
+    #print("Oxford (no clean)")
+    #print(download_word_definition("Oxf", "wick", False))
+    #print()
+    #print(download_oxford("car"))
+    #print()
+    #print(download_oxford("change"))
