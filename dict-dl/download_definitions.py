@@ -90,7 +90,6 @@ def main(filename):
     globalStart = time.time()
     global exitFlag
 
-
     # 1. load all words from the filename argument
     vocabulary = {}
     with open(filename) as f:
@@ -102,7 +101,6 @@ def main(filename):
     # add "-definitions" before the file extension to create output filename
     output_fn = splitext(filename)[0] + "-definitions.txt"
     print("Writing definitions in", output_fn)
-
 
     # 2. create queues containing all words to fetch (1 queue per dictionary)
     queue_Cam = Queue() # no init val -> infinite size
@@ -116,7 +114,6 @@ def main(filename):
         queue_Dic.put(w)
         queue_Col.put(w)
         queue_Oxf.put(w)
-
 
     # 3. create threads
     threads = []
@@ -146,7 +143,6 @@ def main(filename):
         threads.append(thread_Col)
         threads.append(thread_Oxf)
 
-
     # 4. wait until all queues are empty, show progress, terminate all threads
     percent = 0
     while not queue_msg.empty() or \
@@ -173,7 +169,6 @@ def main(filename):
     print("\nWaiting thread_writer to join.")
     thread_writer.join()
 
-
     # 5. get total time and some results infos.
     print("Total time: {:.2f} sec\n".format(time.time() - globalStart))
     print("S T A T S (# successful download / # requests)")
@@ -185,12 +180,10 @@ def main(filename):
     print("\nVocabulary size:", vocabulary_size)
     print("Results written in", output_fn)
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("list_words", metavar="list-words",
            help="file containing a list of words to download definitions")
     args = parser.parse_args()
 
-    print(args)
     main(args.list_words)
