@@ -85,7 +85,7 @@ class ThreadWrite(Thread):
 
         self.of.close()
 
-def main(filename, list_words=None):
+def main(filename, list_words=None, already_done=None):
     # 0. to measure download time + use global to be able to modify exitFlag
     globalStart = time.time()
     global exitFlag
@@ -111,11 +111,23 @@ def main(filename, list_words=None):
     queue_Oxf = Queue()
     queue_msg = Queue()
 
-    for w in vocabulary:
-        queue_Cam.put(w)
-        queue_Dic.put(w)
-        queue_Col.put(w)
-        queue_Oxf.put(w)
+    # only add words in queue if they are not already done
+    if already_done is None:
+        for w in vocabulary:
+            queue_Cam.put(w)
+            queue_Dic.put(w)
+            queue_Col.put(w)
+            queue_Oxf.put(w)
+    else:
+        for w in vocabulary:
+            if not w in already_done["Cam"]:
+                queue_Cam.put(w)
+            if not w in already_done["Dic"]:
+                queue_Dic.put(w)
+            if not w in already_done["Col"]:
+                queue_Col.put(w)
+            if not w in already_done["Oxf"]:
+                queue_Oxf.put(w)
 
     # 3. create threads
     threads = []
