@@ -85,17 +85,19 @@ class ThreadWrite(Thread):
 
         self.of.close()
 
-def main(filename):
+def main(filename, list_words=None):
     # 0. to measure download time + use global to be able to modify exitFlag
     globalStart = time.time()
     global exitFlag
 
-    # 1. load all words from the filename argument
-    vocabulary = {}
-    with open(filename) as f:
-        for line in f:
-            if not line.strip() in vocabulary:
-                vocabulary[line.strip()] = []
+    # 1. load all words from the filename argument (or use list_words if given)
+    if list_words is not None:
+        vocabulary = list_words
+    else:
+        vocabulary = set()
+        with open(filename) as f:
+            for line in f:
+                vocabulary.add(line.strip())
 
     vocabulary_size = len(vocabulary)
     # add "-definitions" before the file extension to create output filename
