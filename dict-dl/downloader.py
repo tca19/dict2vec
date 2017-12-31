@@ -35,7 +35,7 @@ def download_cambridge(word, pos="all"):
         # definitions are in a <b> tag that has the class "def"
         defs_pat = re.compile('<b class="def">(.*?)</b>', re.I|re.S)
 
-        # need to extract definitions of only a certain pos type
+        # need to extract definitions only if it's a certain pos type
         if pos in ["adjective", "noun", "verb"]:
 
             # each type entry (adj, noun or verb) is in a "entry-body__el"
@@ -71,17 +71,17 @@ def download_cambridge(word, pos="all"):
         cleaner = re.compile('<.+?>', re.I|re.S)
         return [ re.sub(cleaner, '', x) for x in defs ]
 
-    except HTTPError:
-        return -1
-    except UnicodeDecodeError:
-        return -1
     except Exception as e:
         print("\nERROR: * timeout error.")
         print("       * retry Cambridge -", word)
         return -1
 
-def download_dictionary(word):
+def download_dictionary(word, pos="all"):
     URL = "http://www.dictionary.com/browse/" + word
+
+    if pos not in ["all", "adjective", "noun", "verb"]:
+        pos = "all"
+
     try:
         html = urlopen(URL).read().decode('utf-8')
 
@@ -89,22 +89,38 @@ def download_dictionary(word):
         # only the first block contains interesting definitions.
         # Can't use </div> for regex ending because there are some <div>
         # inside definitions, so i use the next big div.
-        block_p = re.compile('<div class="def-list">(.*?)<div class="tail-wrapper">',
+        block_p = re.compile('<div class="def-list">(.*?)<div class="tail-wrap',
                              re.I|re.S)
         block_one = re.findall(block_p, html)[0]
 
         # inside this block, all definitions are in <div class="def-content">.
-        # We stop at class="def-block" which is a sentence example.
-        defs_p = re.compile('<div class="def-content">(.+?)<div class="def-block',
-                            re.I|re.S)
-        defs = re.findall(defs_p, block_one)
+        # Sometimes closed by a new <div>, sometimes a closing </div> so ?/
+        # catches the two cases
+        defs_p = re.compile('<div class="def-content">(.+?)</?div', re.I|re.S)
 
-        # sometimes there are no <div class="def-clock"> after the definition,
-        # so no definitions have been caught. But we can use the end of </div>
-        # to catch them (ex: for the word 'wick').
-        if len(defs) == 0:
-            defs_p = re.compile('<div class="def-content">(.+?)</div>',
-                                re.I|re.S)
+        # need to extract definitions only if it's a certain pos type
+        if pos in ["adjective", "noun", "verb"]:
+
+            # inside block_one, there are sub-blocks : one for each type of
+            # pos (adjective/noun/verb). Extract all these sub-blocks
+            section_pat = re.compile("<section(.*?)</section>", re.I|re.S)
+            sections = re.findall(section_pat, block_one)
+
+            # then for each block, I only extract the definitions if it matches
+            # the pos argument
+            pos_pat = re.compile('class="dbox-pg">(.*?)</span>', re.I|re.S)
+            defs = []
+
+            for section in sections:
+                pos_extracted = re.search(pos_pat, section).group(1).split()[0]
+
+                if pos_extracted != pos:
+                    continue
+
+                defs += re.findall(defs_p, section)
+
+        # otherwise extract all definitions available
+        else:
             defs = re.findall(defs_p, block_one)
 
         # need to clean definitions of <a> and <span> tags. Use cleaner to
@@ -113,12 +129,6 @@ def download_dictionary(word):
         cleaner = re.compile('<.+?>', re.I|re.S)
         return [ re.sub(cleaner, '', x).strip() for x in defs ]
 
-    except HTTPError:
-        return -1
-    except UnicodeDecodeError:
-        return -1
-    except IndexError:
-        return -1
     except Exception as e:
         print("\nERROR: * timeout error.")
         print("       * retry dictionary.com -", word)
@@ -235,12 +245,12 @@ def download_word_definition(dict_name, word, clean=True):
     return words
 
 if __name__ == '__main__':
-    print("Cambridge")
-    print("\n- ".join(download_cambridge("jump", "verb")))
+    #print("Cambridge")
+    #print("\n- ".join(download_cambridge("jump", "verb")))
 
 
-    #print("\ndictionary.com")
-    #print(download_word_definition("Dic", 'wick'))
+    print("dictionary.com")
+    print("\n- ".join(download_dictionary("motor", "noun")))
     #print("\nCollins")
     #print(download_word_definition("Col", 'change'))
     #print("\nOxford")
