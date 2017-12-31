@@ -23,14 +23,49 @@ from urllib.request import urlopen
 from urllib.error import HTTPError
 import re
 
-def download_cambridge(word):
+def download_cambridge(word, pos="all"):
     URL = "http://dictionary.cambridge.org/dictionary/english/" + word
+
+    if pos not in ["all", "adjective", "noun", "verb"]:
+        pos = "all"
+
     try:
         html = urlopen(URL).read().decode('utf-8')
 
         # definitions are in a <b> tag that has the class "def"
-        pattern = re.compile('<b class="def">(.*?)</b>', re.I|re.S)
-        defs = re.findall(pattern, html)
+        defs_pat = re.compile('<b class="def">(.*?)</b>', re.I|re.S)
+
+        # need to extract definitions of only a certain pos type
+        if pos in ["adjective", "noun", "verb"]:
+
+            # each type entry (adj, noun or verb) is in a "entry-body__el"
+            # block. A word might have many blocks (if it is both a noun and a
+            # verb, it will have 2 blocks). Moreover, there are also different
+            # blocks for British or American language. I can't extract blocks
+            # because there is no ending regex that works for every word, so I
+            # consider a block to be between the indexes of 2 consecutive
+            # block_pat matches. Last block goes to the end of html string.
+            block_pat = re.compile('<div class="entry-body__el ', re.I|re.S)
+            idx = [m.start() for m in block_pat.finditer(html)] + [len(html)]
+            span = [(idx[i], idx[i+1]) for i in range(len(idx)-1)]
+
+            # then for each block, I only extract the definitions if it matches
+            # the pos argument
+            pos_pat = re.compile('class="pos".*?>(.*?)</span>', re.I|re.S)
+            defs = []
+
+            for start, end in span:
+                pos_extracted = re.search(pos_pat, html[start:end]).group(1)
+
+                if pos_extracted != pos:
+                    continue
+
+                defs += re.findall(defs_pat, html[start:end])
+
+        # otherwise extract all definitions available
+        else:
+            defs = re.findall(defs_pat, html)
+
         # need to clean definitions of <a> and <span> tags. Use cleaner to
         # replace these tags by empty string
         cleaner = re.compile('<.+?>', re.I|re.S)
@@ -44,7 +79,6 @@ def download_cambridge(word):
         print("\nERROR: * timeout error.")
         print("       * retry Cambridge -", word)
         return -1
-
 
 def download_dictionary(word):
     URL = "http://www.dictionary.com/browse/" + word
@@ -90,7 +124,6 @@ def download_dictionary(word):
         print("       * retry dictionary.com -", word)
         return -1
 
-
 def download_collins(word):
     URL = "http://www.collinsdictionary.com/dictionary/english/" + word
     try:
@@ -129,7 +162,6 @@ def download_collins(word):
         print("       * retry Collins -", word)
         return -1
 
-
 def download_oxford(word):
     URL = "http://en.oxforddictionaries.com/definition/"+ word
     try:
@@ -164,7 +196,6 @@ def download_oxford(word):
         print("       * retry Oxford -", word)
         return -1
 
-
 MAP_DICT = {
     "Cam": download_cambridge,
     "Dic": download_dictionary,
@@ -190,7 +221,7 @@ def download_word_definition(dict_name, word, clean=True):
         res = []
 
     for definition in res: # there can be more than one definition fetched
-        # simply add the entire definition is no cleaning needed
+        # if no cleaning needed, add the whole definition
         if not clean:
             words.append(definition)
             continue
@@ -205,13 +236,15 @@ def download_word_definition(dict_name, word, clean=True):
 
 if __name__ == '__main__':
     print("Cambridge")
-    print(download_word_definition("Cam", "wick"))
-    print("\ndictionary.com")
-    print(download_word_definition("Dic", 'wick'))
-    print("\nCollins")
-    print(download_word_definition("Col", 'change'))
-    print("\nOxford")
-    print(download_word_definition("Oxf", 'wick'))
+    print("\n- ".join(download_cambridge("jump", "verb")))
+
+
+    #print("\ndictionary.com")
+    #print(download_word_definition("Dic", 'wick'))
+    #print("\nCollins")
+    #print(download_word_definition("Col", 'change'))
+    #print("\nOxford")
+    #print(download_word_definition("Oxf", 'wick'))
 
 
     #print("Oxford (no clean)")
