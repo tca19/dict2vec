@@ -260,15 +260,15 @@ with open('stopwords.txt') as f:
     for line in f:
         STOPSWORD.add(line.strip().lower())
 
-def download_word_definition(dict_name, word, clean=True):
+def download_word_definition(dict_name, word, pos="all", clean=True):
     """
     Download the definition(s) for word from the dictionary dict_name. If clean
     is True, clean the definition before returning it (remove stopwords and non
     letters characters in definition).
     """
-    words      = []
-    download   = MAP_DICT[dict_name]
-    res        = download(word)
+    words    = []
+    download = MAP_DICT[dict_name]
+    res      = download(word, pos=pos)
     if res == -1: # no definition fetched
         res = []
 
@@ -297,9 +297,10 @@ if __name__ == '__main__':
     print("\n- ".join(download_oxford("wick", "adjective")))
 
 
-    #print("Oxford (no clean)")
-    #print(download_word_definition("Oxf", "wick", False))
-    #print()
-    #print(download_oxford("car"))
-    #print()
-    #print(download_oxford("change"))
+    print("wick [Oxford - noun - no clean]")
+    print(download_word_definition("Oxf", "wick", pos="noun", clean=False))
+    print()
+    print("car [Oxford - noun - clean)")
+    print(download_word_definition("Oxf", "car", pos="noun"))
+    print()
+    print(download_oxford("change"))
