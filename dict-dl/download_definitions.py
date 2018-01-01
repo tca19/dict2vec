@@ -36,9 +36,10 @@ download_counter = {"Cam": 0, "Dic": 0, "Col": 0, "Oxf": 0}
 
 class ThreadDown(Thread):
     """Class representing a thread that download definitions."""
-    def __init__(self, dict_name, data_queue, res_queue):
+    def __init__(self, dict_name, pos, data_queue, res_queue):
         Thread.__init__(self)
         self.dict_name  = dict_name
+        self.pos        = pos # part of speech (noun, verb, adjective or all)
         self.data_queue = data_queue
         self.res_queue  = res_queue
 
@@ -46,7 +47,8 @@ class ThreadDown(Thread):
         while not exitFlag:
             if not self.data_queue.empty():
                 word = self.data_queue.get()
-                result = download_word_definition(self.dict_name, word)
+                result = download_word_definition(self.dict_name, word,
+                                                  self.pos)
                 counterLock.acquire()
                 request_counter[self.dict_name] += 1
                 counterLock.release()
@@ -85,7 +87,7 @@ class ThreadWrite(Thread):
 
         self.of.close()
 
-def main(filename, list_words=None, already_done=None):
+def main(filename, pos="all", list_words=None, already_done=None):
     # 0. to measure download time + use global to be able to modify exitFlag
     globalStart = time.time()
     global exitFlag
@@ -143,13 +145,13 @@ def main(filename, list_words=None, already_done=None):
 
     # start all the download threads.
     for x in range(NB_THREAD):
-        thread_Cam = ThreadDown("Cam", queue_Cam, queue_msg)
+        thread_Cam = ThreadDown("Cam", pos, queue_Cam, queue_msg)
         thread_Cam.start()
-        thread_Dic = ThreadDown("Dic", queue_Dic, queue_msg)
+        thread_Dic = ThreadDown("Dic", pos, queue_Dic, queue_msg)
         thread_Dic.start()
-        thread_Col = ThreadDown("Col", queue_Col, queue_msg)
+        thread_Col = ThreadDown("Col", pos, queue_Col, queue_msg)
         thread_Col.start()
-        thread_Oxf = ThreadDown("Oxf", queue_Oxf, queue_msg)
+        thread_Oxf = ThreadDown("Oxf", pos, queue_Oxf, queue_msg)
         thread_Oxf.start()
 
         threads.append(thread_Cam)
