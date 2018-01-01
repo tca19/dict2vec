@@ -134,8 +134,12 @@ def download_dictionary(word, pos="all"):
         print("       * retry dictionary.com -", word)
         return -1
 
-def download_collins(word):
+def download_collins(word, pos="all"):
     URL = "http://www.collinsdictionary.com/dictionary/english/" + word
+
+    if pos not in ["all", "adjective", "noun", "verb"]:
+        pos = "all"
+
     try:
         html = urlopen(URL).read().decode('utf-8')
 
@@ -145,28 +149,52 @@ def download_collins(word):
           '<div class="content .*? br">(.*?)<div class="div copyri', re.I|re.S)
         block_one = re.findall(block_p, html)[0]
 
-        # inside this block, definitions are in <span class="def">...</span>
-        # Update 24/01/17 : now the fetched word is surrounded by <span></span>
-        # so we can't use the </span> to get the entire definition. We need
-        # to add the <div to make sure we are capturing the definition until
-        # its end.
-        # Update 29/11/17 : definitions are now in <div class="def">...</div>
-        # instead of <span class="def">...</span>
-        defs_p = re.compile('<div class="def">(.+?)</div>', re.I|re.S)
-        defs = re.findall(defs_p, block_one)
+        # inside this block, definitions are in <div class="def">...</div>
+        defs_pat = re.compile('<div class="def">(.+?)</div>', re.I|re.S)
+
+        # need to extract definitions only if it's a certain pos type
+        if pos in ["adjective", "noun", "verb"]:
+
+            # each sense of the word is inside a <div class="hom">. Get all the
+            # starting and ending indexes of these blocks
+            sense_pat = re.compile('<div class="hom">', re.I|re.S)
+            idx = [m.start() for m in sense_pat.finditer(block_one)]
+            idx.append(len(block_one))
+            span = [(idx[i], idx[i+1]) for i in range(len(idx)-1)]
+
+            # then for each sense, I only extract the definitions if it matches
+            # the pos argument
+            pos_pat = re.compile('class="pos">(.*?)</span>', re.I|re.S)
+            defs = []
+
+            for start, end in span:
+                pos_extracted = re.search(pos_pat, block_one[start:end])
+
+                # sometimes, sense is just a sentence or an idiom, so no pos
+                # extracted
+                if pos_extracted is None:
+                    continue
+
+                # noun is written as "countable noun". The split()[-1] trick is
+                # to only extract "noun" from "countable noun", but leaves
+                # "verb" as "verb".
+                pos_extracted = pos_extracted.group(1).split()[-1]
+
+                if pos_extracted != pos:
+                    continue
+
+                defs += re.findall(defs_pat, block_one[start:end])
+
+        # otherwise extract all definitions available
+        else:
+            defs = re.findall(defs_pat, block_one)
 
         # need to clean definitions of <a> and <span> tags. Use cleaner to
         # replace these tags by empty string, Use .strip() to also clean some
         # \r or \n, and replace because sometimes there are \n inside a sentence
         cleaner = re.compile('<.+?>', re.I|re.S)
-        return [ re.sub(cleaner, '', x).replace('\n', ' ').strip() for x in defs ]
+        return [re.sub(cleaner, '', x).replace('\n', ' ').strip() for x in defs]
 
-    except HTTPError:
-        return -1
-    except UnicodeDecodeError:
-        return -1
-    except IndexError:
-        return -1
     except Exception as e:
         print("\nERROR: * timeout error.")
         print("       * retry Collins -", word)
@@ -247,12 +275,10 @@ def download_word_definition(dict_name, word, clean=True):
 if __name__ == '__main__':
     #print("Cambridge")
     #print("\n- ".join(download_cambridge("jump", "verb")))
-
-
-    print("dictionary.com")
-    print("\n- ".join(download_dictionary("motor", "noun")))
-    #print("\nCollins")
-    #print(download_word_definition("Col", 'change'))
+    #print("dictionary.com")
+    #print("\n- ".join(download_dictionary("motor", "noun")))
+    print("\nCollins")
+    print(download_collins("jump", "verb"))
     #print("\nOxford")
     #print(download_word_definition("Oxf", 'wick'))
 
