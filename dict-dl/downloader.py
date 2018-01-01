@@ -200,35 +200,49 @@ def download_collins(word, pos="all"):
         print("       * retry Collins -", word)
         return -1
 
-def download_oxford(word):
+def download_oxford(word, pos="all"):
     URL = "http://en.oxforddictionaries.com/definition/"+ word
+
+    if pos not in ["all", "adjective", "noun", "verb"]:
+        pos = "all"
+
     try:
         html = urlopen(URL).read().decode('utf-8')
 
-        # definitions (for every senses of a word) are all inside a <section>
-        # tag that has the class "gramb"
+        # extract blocks containing POS type and definitions. For example, if
+        # word is both a noun and a verb, there is one <section class="gramb">
+        # block for the noun definitions, and another for the verb definitions
         block_p = re.compile('<section class="gramb">(.*?)</section>', re.I|re.S)
         blocks  = re.findall(block_p, html)
 
-        # inside these <section>, definitions are in a <span class="ind">. One
-        # <section> block can contain many definitions so we need to first
-        # combine all <section>, then extract the <span> with only one call to
-        # findall()
-        pattern = re.compile('<span class="ind">(.*?)</span>', re.I|re.S)
-        blocks  = ' '.join(blocks)
-        defs    = re.findall(pattern, blocks)
+        # inside these blocks, definitions are in <span class="ind">
+        defs_pat = re.compile('<span class="ind">(.*?)</span>', re.I|re.S)
+
+        # need to extract definitions only if it's a certain pos type
+        if pos in ["adjective", "noun", "verb"]:
+
+            # for each block, I only extract the definitions if it matches the
+            # pos argument
+            pos_pat = re.compile('class="pos">(.*?)</span>', re.I|re.S)
+            defs = []
+
+            for block in blocks:
+                pos_extracted = re.search(pos_pat, block).group(1)
+
+                if pos_extracted != pos:
+                    continue
+
+                defs += re.findall(defs_pat, block)
+
+        # otherwise extract all definitions available
+        else:
+            defs = re.findall(defs_pat, "".join(blocks))
 
         # need to clean definitions of <a> and <span> tags. Use cleaner to
         # replace these tags by empty string
         cleaner = re.compile('<.+?>', re.I|re.S)
         return [ re.sub(cleaner, '', x) for x in defs ]
 
-    except HTTPError:
-        return -1
-    except UnicodeDecodeError:
-        return -1
-    except IndexError:
-        return -1
     except Exception as e:
         print("\nERROR: * timeout error.")
         print("       * retry Oxford -", word)
@@ -277,10 +291,10 @@ if __name__ == '__main__':
     #print("\n- ".join(download_cambridge("jump", "verb")))
     #print("dictionary.com")
     #print("\n- ".join(download_dictionary("motor", "noun")))
-    print("\nCollins")
-    print(download_collins("jump", "verb"))
-    #print("\nOxford")
-    #print(download_word_definition("Oxf", 'wick'))
+    #print("\nCollins")
+    #print(download_collins("jump", "verb"))
+    print("\nOxford")
+    print("\n- ".join(download_oxford("wick", "adjective")))
 
 
     #print("Oxford (no clean)")
