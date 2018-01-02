@@ -55,7 +55,14 @@ def download_cambridge(word, pos="all"):
             defs = []
 
             for start, end in span:
-                pos_extracted = re.search(pos_pat, html[start:end]).group(1)
+                pos_extracted = re.search(pos_pat, html[start:end])
+
+                # some words (like mice) do not have a pos info, so no pos
+                # extracted
+                if pos_extracted is None:
+                    continue
+
+                pos_extracted = pos_extracted.group(1)
 
                 if pos_extracted != pos:
                     continue
@@ -316,10 +323,10 @@ def download_word_definition(dict_name, word, pos="all", clean=True):
     return words
 
 if __name__ == '__main__':
-    #print("Cambridge")
-    #print("\n- ".join(download_cambridge("jump", "verb")))
-    print("dictionary.com")
-    print(download_dictionary("jeep", "all"))
+    print("Cambridge")
+    print(download_cambridge("dove", "noun"))
+    #print("dictionary.com")
+    #print(download_dictionary("jeep", "all"))
     #print("\nCollins")
     #print(download_collins("jump", "verb"))
     #print("\nOxford")
