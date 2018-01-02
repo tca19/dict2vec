@@ -167,10 +167,10 @@ def download_collins(word, pos="all"):
     try:
         html = urlopen(URL).read().decode('utf-8')
 
-        # definitions are in the big block <div class="content [...] br">.
+        # definitions are in the big block <div class="content [...] ced [...]>
         # Use the next <div> with "copyright" for ending regex.
         block_p = re.compile(
-          '<div class="content .*? br">(.*?)<div class="div copyri', re.I|re.S)
+          '<div class="content .*? ced"(.*?)<div class="div copyri', re.I|re.S)
         block_one = re.findall(block_p, html)[0]
 
         # inside this block, definitions are in <div class="def">...</div>
@@ -324,11 +324,11 @@ def download_word_definition(dict_name, word, pos="all", clean=True):
 
 if __name__ == '__main__':
     print("Cambridge")
-    print(download_cambridge("dove", "noun"))
+    print(download_cambridge("rocking", "all"))
     #print("dictionary.com")
     #print(download_dictionary("jeep", "all"))
-    #print("\nCollins")
-    #print(download_collins("jump", "verb"))
+    print("\nCollins")
+    print(download_collins("building", "noun"))
     #print("\nOxford")
     #print("\n- ".join(download_oxford("wick", "adjective")))
 
