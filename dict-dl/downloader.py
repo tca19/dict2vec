@@ -71,6 +71,10 @@ def download_cambridge(word, pos="all"):
         cleaner = re.compile('<.+?>', re.I|re.S)
         return [ re.sub(cleaner, '', x) for x in defs ]
 
+    except HTTPError:
+        return -1
+    except UnicodeDecodeError:
+        return -1
     except Exception as e:
         print("\nERROR: * timeout error.")
         print("       * retry Cambridge -", word)
@@ -129,6 +133,12 @@ def download_dictionary(word, pos="all"):
         cleaner = re.compile('<.+?>', re.I|re.S)
         return [ re.sub(cleaner, '', x).strip() for x in defs ]
 
+    except HTTPError:
+        return -1
+    except UnicodeDecodeError:
+        return -1
+    except IndexError:
+        return -1
     except Exception as e:
         print("\nERROR: * timeout error.")
         print("       * retry dictionary.com -", word)
@@ -195,6 +205,12 @@ def download_collins(word, pos="all"):
         cleaner = re.compile('<.+?>', re.I|re.S)
         return [re.sub(cleaner, '', x).replace('\n', ' ').strip() for x in defs]
 
+    except HTTPError:
+        return -1
+    except UnicodeDecodeError:
+        return -1
+    except IndexError:
+        return -1
     except Exception as e:
         print("\nERROR: * timeout error.")
         print("       * retry Collins -", word)
@@ -243,6 +259,12 @@ def download_oxford(word, pos="all"):
         cleaner = re.compile('<.+?>', re.I|re.S)
         return [ re.sub(cleaner, '', x) for x in defs ]
 
+    except HTTPError:
+        return -1
+    except UnicodeDecodeError:
+        return -1
+    except IndexError:
+        return -1
     except Exception as e:
         print("\nERROR: * timeout error.")
         print("       * retry Oxford -", word)
