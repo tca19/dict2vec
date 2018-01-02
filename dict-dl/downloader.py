@@ -116,9 +116,16 @@ def download_dictionary(word, pos="all"):
             defs = []
 
             for section in sections:
-                pos_extracted = re.search(pos_pat, section).group(1).split()[0]
+                pos_extracted = re.search(pos_pat, section)
 
-                if pos_extracted != pos:
+                # some words (like cia) do not have a pos info so no pos
+                # extracted
+                if pos_extracted is None:
+                    continue
+
+                pos_extracted = pos_extracted.group(1)
+
+                if pos not in pos_extracted:
                     continue
 
                 defs += re.findall(defs_p, section)
@@ -311,18 +318,18 @@ def download_word_definition(dict_name, word, pos="all", clean=True):
 if __name__ == '__main__':
     #print("Cambridge")
     #print("\n- ".join(download_cambridge("jump", "verb")))
-    #print("dictionary.com")
-    #print("\n- ".join(download_dictionary("motor", "noun")))
+    print("dictionary.com")
+    print(download_dictionary("jeep", "all"))
     #print("\nCollins")
     #print(download_collins("jump", "verb"))
-    print("\nOxford")
-    print("\n- ".join(download_oxford("wick", "adjective")))
+    #print("\nOxford")
+    #print("\n- ".join(download_oxford("wick", "adjective")))
 
 
-    print("wick [Oxford - noun - no clean]")
-    print(download_word_definition("Oxf", "wick", pos="noun", clean=False))
-    print()
-    print("car [Oxford - noun - clean)")
-    print(download_word_definition("Oxf", "car", pos="noun"))
-    print()
-    print(download_oxford("change"))
+    #print("wick [Oxford - noun - no clean]")
+    #print(download_word_definition("Oxf", "wick", pos="noun", clean=False))
+    #print()
+    #print("car [Oxford - noun - clean)")
+    #print(download_word_definition("Oxf", "car", pos="noun"))
+    #print()
+    #print(download_oxford("change"))
