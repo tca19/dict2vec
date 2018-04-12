@@ -27,8 +27,8 @@ time wget -qO- $URL | bzip2 -d | perl wiki-parser.pl > "$DATA_DIR/enwiki-full"
 echo "Done."
 echo
 
-#echo "Creating enwiki-50M and enwiki-200M..."
-#head -c 296093483 "$DATA_DIR/enwiki-full" > "$DATA_DIR/enwiki-50M"
-#head -c 1164406185 "$DATA_DIR/enwiki-full" > "$DATA_DIR/enwiki-200M"
-#echo "Done."
-#echo
+echo "Creating enwiki-50M and enwiki-200M..."
+head -c 296036155 "$DATA_DIR/enwiki-full" > "$DATA_DIR/enwiki-50M"
+head -c 1164256637 "$DATA_DIR/enwiki-full" > "$DATA_DIR/enwiki-200M"
+echo "Done."
+echo
