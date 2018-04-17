@@ -164,7 +164,7 @@ the paper by running the script `wiki-dl.sh`.
 $ ./wiki-dl.sh
 ```
 
-This script will download the full English Wikipedia dump of July 2017,
+This script will download the full English Wikipedia dump of April 2018,
 uncompress it and directly feed it into [Mahoney's parser
 script](http://mattmahoney.net/dc/textdata#appendixa). It also cuts the entire
 dump into two smaller datasets : one containing the first 50M tokens
@@ -173,7 +173,7 @@ We report the following filesizes :
 
   * enwiki-50M  : 283MB
   * enwiki-200M : 1.1GB
-  * enwiki-full : 23GB
+  * enwiki-full : 24GB
 
 
 Cite this paper
