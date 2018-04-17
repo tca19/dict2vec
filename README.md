@@ -77,13 +77,14 @@ MTurk-287.txt   | 0.659| 0.659| 0.659| 0.000|  0%
 MTurk-771.txt   | 0.684| 0.684| 0.684| 0.000|  0%
 RG-65.txt       | 0.833| 0.833| 0.833| 0.000|  0%
 RW-STANFORD.txt | 0.503| 0.503| 0.503| 0.000|  36%
+SimLex999.txt   | 0.463| 0.463| 0.463| 0.000|  0%
 SimVerb-3500.txt| 0.399| 0.399| 0.399| 0.000|  3%
 WS-353-ALL.txt  | 0.743| 0.743| 0.743| 0.000|  0%
 WS-353-REL.txt  | 0.670| 0.670| 0.670| 0.000|  0%
 WS-353-SIM.txt  | 0.763| 0.763| 0.763| 0.000|  0%
 YP-130.txt      | 0.630| 0.630| 0.630| 0.000|  3%
 ---------------------------------------------------
-W.Average       | 0.577
+W.Average       | 0.567
 ```
 
 The script computes the Spearman's rank correlation score for some word
@@ -97,6 +98,7 @@ evaluation datasets in `data/eval/`.
   * MTurk-771    (Halawi et al., 2012)
   * RG-65        (Rubenstein and Goodenough, 1965)
   * RW           (Luong et al., 2013)
+  * SimLex-999   (Hill et al., 2014)
   * SimVerb-3500 (Gerz et al., 2016)
   * WordSim-353  (Finkelstein et al., 2001)
   * YP-130       (Yang and Powers, 2006)
