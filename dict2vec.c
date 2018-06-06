@@ -18,9 +18,12 @@
  * along with Dict2vec.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>      /* strcat */
+#include <math.h>
 #include <pthread.h>
 
 #define MAXLEN       100
@@ -83,21 +86,25 @@ clock_t start;
 int current_epoch = 0, table_size = 1e7, neg_pos = 0;
 
 
-/* return 1 if value is inside array. 0 otherwise. */
-int32_t contains(int32_t *array, int32_t value, int32_t size)
+/* contains: return 1 if value is inside array. 0 otherwise. */
+int contains(int *array, int value, int size)
 {
-	for (int32_t j = 0; j < size; ++j)
-		if (array[j] == value) return 1;
+	int j;
 
+	for (j = 0; j < size; ++j)
+		if (array[j] == value)
+			return 1;
 	return 0;
 }
 
-/* arrange the elements of array in random order. Swap two random
- cells N times (N is the size of array) */
-void shuffle(int32_t *array, int32_t size)
+/* shuffle: arrange the elements of array in random order. Swap two random
+ * cells N times (N is the size of array).
+ */
+void shuffle(int *array, int size)
 {
-	int32_t j, tmp;
-	for (int32_t i = 0; i < size - 1; i++)
+	int i, j, tmp;
+
+	for (i = 0; i < size - 1; ++i)
 	{
 		j = i + rand() / (RAND_MAX / (size - i) + 1);
 		tmp = array[j];
@@ -106,13 +113,18 @@ void shuffle(int32_t *array, int32_t size)
 	}
 }
 
-/* initialize the negative table used for negative sampling. The table is
- composed of indexes of words, each one proportional to the number of
- occurrence of this word. */
+/* init_negative_table: initialize the negative table used for negative
+ * sampling. The table is composed of indexes of words, each one proportional
+ * to the number of occurrence of this word.
+ */
 void init_negative_table()
 {
+	int i, n_cells, pos;
+	float sum, d;
+
 	/* allocate memory for the negative table*/
-	table = (int32_t *)calloc(table_size, sizeof(int32_t));
+	table = calloc(table_size, sizeof *table);
+
 	if (table == NULL)
 	{
 		printf("Cannot allocate memory for the negative table\n");
@@ -120,58 +132,60 @@ void init_negative_table()
 	}
 
 	/* compute the sum of count^0.75 for all words */
-	int32_t i, num_cells, pos = 0;
-	float sum = 0.0;
-	for (i = 0; i < vocab_size; ++i)
+	for (i = 0, sum = 0.0; i < vocab_size; ++i)
 		sum += pow(vocab[i].count, 0.75);
 
-	/* multiply is faster than divide so precompute 1 / sum */
-	float d = 1.0 / sum;
-	for (i = 0; i < vocab_size; ++i)
+	/* multiply is faster than divide so precompute d = 1/sum */
+	for (i = 0, pos = 0, d = 1.0/sum; i < vocab_size; ++i)
 	{
 		/* compute number of cells reserved for word[i] */
-		num_cells = pow(vocab[i].count, 0.75) * table_size * d;
+		n_cells = pow(vocab[i].count, 0.75) * table_size * d;
 
-		while (num_cells--)
+		while (n_cells--)
 			table[pos++] = i;
 	}
 
-	/* due to rounding point error, it is possible that we inserted
-	 less than table_size values. So update the table_size to the
-	 real size. */
+	/* due to rounding point error, it is possible that we inserted less
+	 * than table_size values. So update the table_size to the real size. */
 	table_size = pos-1;
 
 	/* shuffle the array so we don't have to draw a new random index each
-	 time we want a negative sample, simply keep a position_index,
-	 get the table[position_index] value and increment position_index.
-	 This is the same as drawing a new random index i and get table[i]. */
+	 * time we want a negative sample, simply keep a position_index, get the
+	 * table[position_index] value and increment position_index. This is the
+	 * same as drawing a new random index i and get table[i]. */
 	shuffle(table, table_size);
-
 }
 
-/* compute the discard probabilty for each word. The probability is
-defined as: p(w) = 1 - sqrt(t / f(w)) where t is the threshold and
-f(w) is the frequency of word w. But we store Y = sqrt(t / f(w)). Then
-we draw a random number X between 0 and 1 and look if X > Y. X has a
-probability p(w) of being greater than Y.
-If N is the total number of words, we have:
-Y = sqrt(t / ( count(w) / N )) = sqrt(t * N) / sqrt(count(w)) */
+/* compute_discard_prob: compute the discard probabilty of each word. The
+ * probability is defined as: p(w) = 1 - sqrt(t / f(w)) where t is the
+ * threshold and f(w) is the frequency of word w. But we store
+ * Y = sqrt(t / f(w)). Then we draw a random number X between 0 and 1 and
+ * look if X > Y. X has a probability p(w) of being greater than Y.
+ * If N is the total number of words, we have:
+ *   Y = sqrt(t / ( count(w) / N )) = sqrt(t * N) / sqrt(count(w))
+ */
 void compute_discard_prob()
 {
+	int i;
+	float w;
+
 	/* precompute sqrt(t * n) */
-	float w = sqrt(sample * train_words);
-	for (int32_t i = 0; i < vocab_size; ++i)
+	w = sqrt(sample * train_words);
+	for (i = 0; i < vocab_size; ++i)
 		vocab[i].pdiscard = w / sqrt(vocab[i].count);
 }
 
-/* read a single word from a file, assume word boundaries are non letter char.
-Return -1 if EOF, else return the size of read word */
-int32_t read_word(char *word, FILE *fi)
+/* read_word: read a single word from a file, assume word boundaries are non
+ * letter char. Return -1 if EOF, else return the size of read word.
+ */
+int read_word(char *word, FILE *fi)
 {
-	int32_t c, i = 0;
+	int c, i;
+	i = 0;
 
 	/* move until we find a valid letter or EOF */
-	while (EOF != (c = fgetc(fi)) && !isalpha(c)) continue;
+	while (EOF != (c = fgetc(fi)) && !isalpha(c))
+		continue;
 
 	/* add letters to word until EOF or non letter char */
 	if (c != EOF)
@@ -181,7 +195,7 @@ int32_t read_word(char *word, FILE *fi)
 			word[i++] = c;
 			/* reduce i so we won't exceed size of word (which
 			 has a size of MAX_STRING) */
-			if (i > MAX_STRING-1) i--;
+			if (i > MAXLEN-1) i--;
 		} while (EOF != (c = fgetc(fi)) && isalpha(c));
 
 		word[i] = '\0';
@@ -191,46 +205,47 @@ int32_t read_word(char *word, FILE *fi)
 		return -1;
 }
 
-/* return the hash value of word */
-uint32_t hash(char *word, const uint32_t vocab_hash_size)
+/* hash: form hash value for string s */
+unsigned int hash(char *s)
 {
-	uint32_t h = 0;
-	for (size_t i = 0; i < strlen(word); ++i)
-		h = h * 257 + (uint32_t) word[i];
+	unsigned int hashval;
 
-	return h % vocab_hash_size;
+	for (hashval = 0; *s != '\0'; ++s)
+		hashval = hashval * 257 + *s;
+	return hashval % HASHSIZE;
 }
 
-/* return the position of word in vocab_hash. If word has never been met, the
- cell at index hash(word) in vocab_hash will be -1. If the cell is not -1, we
- start to compare word to each element with the same hash. */
-int32_t find(char *word, const uint32_t vocab_hash_size)
+/* find: return the position of string s in vocab_hash. If word has never been
+ * met, the cell at index hash(word) in vocab_hash will be -1. If the cell is
+ * not -1, we start to compare word to each element with the same hash.
+ */
+unsigned int find(char *s)
 {
-	uint32_t h = hash(word, vocab_hash_size);
-	while (vocab_hash[h] != -1 && strcmp(word, vocab[vocab_hash[h]].word))
-		h = (h + 1) % vocab_hash_size;
+	unsigned int h = hash(s);
 
+	while (vocab_hash[h] != -1 && strcmp(s, vocab[vocab_hash[h]].word))
+		h = (h + 1) % HASHSIZE;
 	return h;
 }
 
 /* add word to the vocabulary. If word already exists, increment its count */
-void add_word(char *word, const uint32_t vocab_hash_size)
+void add_word(char *word)
 {
-	uint32_t h = find(word, vocab_hash_size);
+	unsigned int h = find(word);
 	if (vocab_hash[h] == -1)
 	{
 		/* create new entry */
 		struct entry e;
-		e.word = (char *)calloc(strlen(word)+1, sizeof(char));
+		e.word = malloc(sizeof(char) * (strlen(word)+1));
 		strcpy(e.word, word);
-		e.count            = 1;
-		e.pdiscard         = 1.0;
-		e.num_strong_pairs = 0;
-		e.pos_strong_pairs = 0;
-		e.num_weak_pairs   = 0;
-		e.pos_weak_pairs   = 0;
-		e.strong_pairs     = NULL;
-		e.weak_pairs       = NULL;
+		e.count    = 1;
+		e.pdiscard = 1.0;
+		e.n_sp     = 0;
+		e.pos_sp   = 0;
+		e.n_wp     = 0;
+		e.pos_wp   = 0;
+		e.sp       = NULL;
+		e.wp       = NULL;
 
 		/* add it to vocab and set its index in vocab_hash */
 		vocab[vocab_size] = e;
@@ -240,10 +255,8 @@ void add_word(char *word, const uint32_t vocab_hash_size)
 		if (vocab_size >= vocab_max_size)
 		{
 			vocab_max_size += 10000;
-			vocab = (struct entry *)realloc(
-			         vocab, vocab_max_size * sizeof(struct entry));
+			vocab = realloc(vocab, vocab_max_size * sizeof(struct entry));
 		}
-
 	}
 	else
 	{
@@ -251,50 +264,56 @@ void add_word(char *word, const uint32_t vocab_hash_size)
 	}
 }
 
-/* used to sort two words */
+/* compare_words: used to sort two words */
 int compare_words(const void *a, const void *b)
 {
 	return ((struct entry *)b)->count - ((struct entry *)a)->count;
 }
 
-/* free all memory used to create stong/weak pairs arrays.
- free memory used to store words (char *)
- free the entire array of entries */
+/* destroy_vocab: free all memory used to create stong/weak pairs arrays, free
+ * memory used to store words (char *) and free the entire array of entries.
+ */
 void destroy_vocab()
 {
-	for (int32_t i = 0; i < vocab_size; ++i)
+	int i;
+
+	for (i = 0; i < vocab_size; ++i)
 	{
 		free(vocab[i].word);
 
-		if (vocab[i].strong_pairs != NULL)
-			free(vocab[i].strong_pairs);
+		if (vocab[i].sp != NULL)
+			free(vocab[i].sp);
 
-		if (vocab[i].weak_pairs != NULL)
-			free(vocab[i].weak_pairs);
+		if (vocab[i].wp != NULL)
+			free(vocab[i].wp);
 	}
 
 	free(vocab);
 }
 
-/* sort the words in vocabulary by their number of occurrences. Remove all
- words with less than min_count occurrence */
-void sort_and_reduce_vocab(const uint32_t vocab_hash_size)
+/* sort_and_reduce_vocab: sort the words in vocabulary by their number of
+ * occurrences. Remove all words with less than min_count occurrences.
+ */
+void sort_and_reduce_vocab()
 {
+	int i, valid_words;
+
 	/* sort vocab in descending order by number of word occurrence */
 	qsort(vocab, vocab_size, sizeof(struct entry), compare_words);
 
 	/* get the number of valid words (words with count >= min_count) */
-	int32_t valid_words = 0;
-	while (vocab[valid_words++].count >= min_count) continue;
+	valid_words = 0;
+	while (vocab[valid_words++].count >= min_count)
+		continue;
 
 	/* because valid_words has been incremented after the condition has
-	 been evaluated to false */
+	 * been evaluated to false */
 	valid_words--;
 
 	/* remove words with less than min_count occurrences. Strong and weak
-	 pairs have not been added to vocab yet, so no need to free the
-	 allocated memory of strong/weak pairs arrays. */
-	for (int32_t i = valid_words; i < vocab_size; ++i)
+	 * pairs have not been added to vocab yet, so no need to free the
+	 * allocated memory of strong/weak pairs arrays. */
+	for (i = valid_words; i < vocab_size; ++i)
 	{
 		train_words -= vocab[i].count;
 		free(vocab[i].word);
@@ -303,32 +322,32 @@ void sort_and_reduce_vocab(const uint32_t vocab_hash_size)
 
 	/* resize the vocab array with its new size */
 	vocab_size = valid_words;
-	vocab = (struct entry *)
-	        realloc(vocab, vocab_size * sizeof(struct entry));
+	vocab = realloc(vocab, vocab_size * sizeof(struct entry));
 
 	/* sorting has changed the index of each word, so update the value
 	 in vocab_hash. Start by reseting all values to -1.*/
-	for (uint32_t i = 0; i < vocab_hash_size; ++i) vocab_hash[i] = -1;
-	for (int32_t i = 0; i < vocab_size; ++i)
-		vocab_hash[find(vocab[i].word, vocab_hash_size)] = i;
+	for (i = 0; i < HASHSIZE; ++i)
+		vocab_hash[i] = -1;
+	for (i = 0; i < vocab_size; ++i)
+		vocab_hash[find(vocab[i].word)] = i;
 }
 
-/* read the file containing the strong pairs. For each pair, add it in the
- vocab for both words involved. */
-int32_t read_strong_pairs()
+/* read_strong_pairs; read the file containing the strong pairs. For each pair,
+ * add it in the vocab for both words involved.
+ */
+int read_strong_pairs()
 {
-	/* open file */
-	FILE *fi = fopen(spairs_file, "r");
-	if (fi == NULL)
+	FILE *fi;
+	char word1[MAXLEN], word2[MAXLEN];
+	int i1, i2, len;
+
+	if ((fi = fopen(spairs_file, "r")) == NULL)
 	{
 		printf("WARNING: strong pairs data not found!\n"
 		       "Not taken into account during learning.\n");
 		return 1;
 	}
 
-	char word1[MAX_STRING], word2[MAX_STRING];
-	int32_t i1, i2, len;
-
 	/* read file until EOF */
 	while (read_word(word1, fi) != -1)
 	{
@@ -336,67 +355,65 @@ int32_t read_strong_pairs()
 		 we can read word2 */
 		read_word(word2, fi);
 
-		i1 = find(word1, vocab_hash_size);
-		i2 = find(word2, vocab_hash_size);
+		i1 = find(word1);
+		i2 = find(word2);
 
 		/* nothing to do if one of the word is not in vocab */
-		if (vocab_hash[i1] == -1 || vocab_hash[i2] == -1) continue;
+		if (vocab_hash[i1] == -1 || vocab_hash[i2] == -1)
+			continue;
 
 		/* get the real indexes (not the index in the hash table) */
 		i1 = vocab_hash[i1];
 		i2 = vocab_hash[i2];
 
-		/* look if we already have added one pair for i1. If not, create
-		the array. Else, expand by one cell. */
-		len = vocab[i1].num_strong_pairs;
+		/* look if we already have added one strong pair for i1. If not,
+		 * create the array. Else, expand by one cell. */
+		len = vocab[i1].n_sp;
 		if (len == 0)
-			vocab[i1].strong_pairs = (int32_t *)calloc(
-			                          1, sizeof(int32_t));
+			vocab[i1].sp = calloc(1, sizeof(int));
 		else
-			vocab[i1].strong_pairs = (int32_t *)realloc(
-			  vocab[i1].strong_pairs, (len+1) * sizeof(int32_t));
+			vocab[i1].sp = realloc(vocab[i1].sp, (len+1) * sizeof(int));
 
 		/* add i2 to the list of strong pairs indexes of word1 */
-		vocab[i1].strong_pairs[len] = i2;
-		vocab[i1].num_strong_pairs++;
+		vocab[i1].sp[len] = i2;
+		vocab[i1].n_sp++;
 
 		/*   ---------   */
 
 		/* look if we already have added one pair for i2. If not, create
 		 the array. Else, expand by one cell. */
-		len = vocab[i2].num_strong_pairs;
+		len = vocab[i2].n_sp;
 		if (len == 0)
-			vocab[i2].strong_pairs = (int32_t *)calloc(
-			                          1, sizeof(int32_t));
+			vocab[i2].sp = calloc(1, sizeof(int));
 		else
-			vocab[i2].strong_pairs = (int32_t *)realloc(
-			  vocab[i2].strong_pairs, (len+1) * sizeof(int32_t));
+			vocab[i2].sp = realloc(vocab[i2].sp, (len+1) * sizeof(int));
 
-		/* add i1 to the list of strong pairs indexes of word2 */
-		vocab[i2].strong_pairs[len] = i1;
-		vocab[i2].num_strong_pairs++;
+		/* add i2 to the list of strong pairs indexes of word1 */
+		vocab[i2].sp[len] = i1;
+		vocab[i2].n_sp++;
 	}
 
 	fclose(fi);
 	return 0;
 }
 
-/* read the file containing the weak pairs. For each pair, add it in the
-vocab for both words involved. */
-int32_t read_weak_pairs()
+/* read_weak_pairs: read the file containing the weak pairs. For each pair, add
+ * it in the vocab for both words involved.
+ */
+int read_weak_pairs()
 {
-	/* open file */
-	FILE *fi = fopen(wpairs_file, "r");
-	if (fi == NULL)
+	FILE *fi;
+	char word1[MAXLEN], word2[MAXLEN];
+	int i1, i2, len;
+
+
+	if ((fi = fopen(wpairs_file, "r")) == NULL)
 	{
 		printf("WARNING: weak pairs data not found!\n"
 		       "Not taken into account during learning.\n");
 		return 1;
 	}
 
-	char word1[MAX_STRING], word2[MAX_STRING];
-	int32_t i1, i2, len;
-
 	/* read file until EOF */
 	while (read_word(word1, fi) != -1)
 	{
@@ -404,11 +421,12 @@ int32_t read_weak_pairs()
 		 we can read word2 */
 		read_word(word2, fi);
 
-		i1 = find(word1, vocab_hash_size);
-		i2 = find(word2, vocab_hash_size);
+		i1 = find(word1);
+		i2 = find(word2);
 
 		/* nothing to do if one of the word is not in vocab */
-		if (vocab_hash[i1] == -1 || vocab_hash[i2] == -1) continue;
+		if (vocab_hash[i1] == -1 || vocab_hash[i2] == -1)
+			continue;
 
 		/* get the real indexes (not the index in the hash table) */
 		i1 = vocab_hash[i1];
@@ -416,89 +434,87 @@ int32_t read_weak_pairs()
 
 		/* look if we already have added one pair for i1. If not, create
 		the array. Else, expand by one cell. */
-		len = vocab[i1].num_weak_pairs;
+		len = vocab[i1].n_wp;
 		if (len == 0)
-			vocab[i1].weak_pairs = (int32_t *)calloc(
-			                          1, sizeof(int32_t));
+			vocab[i1].wp = calloc(1, sizeof(int));
 		else
-			vocab[i1].weak_pairs = (int32_t *)realloc(
-			  vocab[i1].weak_pairs, (len+1) * sizeof(int32_t));
+			vocab[i1].wp = realloc(vocab[i1].wp, (len+1) * sizeof(int));
 
 		/* add i2 to the list of weak pairs indexes of word1 */
-		vocab[i1].weak_pairs[len] = i2;
-		vocab[i1].num_weak_pairs++;
+		vocab[i1].wp[len] = i2;
+		vocab[i1].n_wp++;
 
 		/*   ---------   */
 
 		/* look if we already have added one pair for i2. If not, create
 		 the array. Else, expand by one cell. */
-		len = vocab[i2].num_weak_pairs;
+		len = vocab[i2].n_wp;
 		if (len == 0)
-			vocab[i2].weak_pairs = (int32_t *)calloc(
-			                          1, sizeof(int32_t));
+			vocab[i2].wp = calloc(1, sizeof(int));
 		else
-			vocab[i2].weak_pairs = (int32_t *)realloc(
-			  vocab[i2].weak_pairs, (len+1) * sizeof(int32_t));
+			vocab[i2].wp = realloc(vocab[i2].wp, (len+1) * sizeof(int));
 
 		/* add i1 to the list of weak pairs indexes of word2 */
-		vocab[i2].weak_pairs[len] = i1;
-		vocab[i2].num_weak_pairs++;
+		vocab[i2].wp[len] = i1;
+		vocab[i2].n_wp++;
 	}
 
 	fclose(fi);
 	return 0;
 }
 
-/* read the file given as -input. For each word, either add it in the vocab
- or increment its occurrence. Also read the strong and weak pairs files
-if provided. Sort the vocabulary by occurrences and display some infos. */
+/* read_vocab: read the file given as -input. For each word, either add it in
+ * the vocab or increment its occurrence. Also read the strong and weak pairs
+ * files if provided. Sort the vocabulary by occurrences and display some infos.
+ */
 void read_vocab()
 {
-	/* open input file */
-	FILE *fi = fopen(input_file, "r");
-	if (fi == NULL)
+	FILE *fi;
+	int i, failure_strong, failure_weak;
+	char word[MAXLEN];
+
+	if ((fi = fopen(input_file, "r")) == NULL)
 	{
 		printf("ERROR: training data file not found!\n");
 		exit(1);
 	}
 
 	/* init the hash table with -1 */
-	for (uint32_t i = 0; i < vocab_hash_size; ++i)
+	for (i = 0; i < HASHSIZE; ++i)
 		vocab_hash[i] = -1;
 
 	/* read file until we get -1 (which is EOF) */
-	char word[MAX_STRING];
 	while (read_word(word, fi) != -1)
 	{
 		/* increment total number of read words */
 		train_words++;
 		if (train_words % 500000 == 0)
 		{
-			printf("%" PRId64 "K%c", train_words / 1000, 13);
+			printf("%ldK%c", train_words / 1000, 13);
 			fflush(stdout);
 		}
 
 		/* add word we just read or increment its count if needed */
-		add_word(word, vocab_hash_size);
+		add_word(word);
 
 
 		/* Wikipedia has around 8M unique words, so we never hit the
-		 21M words limit and therefore never need to reduce the vocab
-		 during creation of vocabulary. If your input file contains
-		 much more unique words, you might need to uncomment it.
-		if (vocab_size > vocab_hash_size * 0.7)
-			sort_and_reduce_vocab(vocab_hash_size);*/
+		 * 21M words limit and therefore never need to reduce the vocab
+		 * during creation of vocabulary. If your input file contains
+		 * much more unique words, you might need to uncomment it. */
+		/*if (vocab_size > HASHSIZE * 0.7)
+			sort_and_reduce_vocab();*/
 	}
 
-	sort_and_reduce_vocab(vocab_hash_size);
+	sort_and_reduce_vocab(HASHSIZE);
 
-	printf("Vocab size: %" PRId64 "\n", vocab_size);
-	printf("Words in train file: %" PRId64 "\n", train_words);
+	printf("Vocab size: %ld\n", vocab_size);
+	printf("Words in train file: %ld\n", train_words);
 
 	printf("Adding strong pairs...");
-	int32_t failure_strong = read_strong_pairs();
+	failure_strong = read_strong_pairs();
 	printf("\nAdding weak pairs...");
-	int32_t failure_weak = read_weak_pairs();
+	failure_weak = read_weak_pairs();
 	if (!failure_strong || !failure_weak)
 		printf("\nAdding pairs done.\n");
 
@@ -507,44 +523,42 @@ void read_vocab()
 	if (sample > 0)
 		compute_discard_prob();
 
-
 	/* each thread is assigned a part of the input file. To distribute
 	 the work to each thread, we need to know the total size of the file */
 	file_size = ftell(fi);
 	fclose(fi);
 }
 
-/* initialize matrix WI (random values) and WO (zero values) */
+/* init_network: initialize matrix WI (random values) and WO (zero values) */
 void init_network()
 {
-	/* WI is initialized with random values from (-0.5 / vec_dimension)
-	 and (0.5 / vec_dimension) */
-	WI = (float *)calloc(vocab_size * dim, sizeof(float));
-	if (WI == NULL)
+	float r, l;
+	int i, j;
+
+	if ((WI = malloc(sizeof *WI * vocab_size * dim)) == NULL)
 	{
 		printf("Memory allocation failed for WI\n");
 		exit(1);
 	}
 
-	/* multiply is faster than divide so precompute 1 / RAND_MAX and
-	 1 / dim */
-	float r = 1.0 / RAND_MAX;
-	float l = 1.0 / dim;
-	for (int32_t i = 0; i < vocab_size; ++i)
-		for (int32_t j = 0; j < dim; ++j)
-			WI[i * dim + j] = ( (rand() * r) - 0.5 ) * l;
 
-
-	/* WO is initialized with zeroes */
-	WO = (float *)calloc(vocab_size * dim, sizeof(float));
-	if (WO == NULL)
+	if ((WO = calloc(vocab_size * dim, sizeof *WO)) == NULL)
 	{
 		printf("Memory allocation failed for WO\n");
 		exit(1);
 	}
+
+	/* WI is initialized with random values from (-0.5 / vec_dimension)
+	 * and (0.5 / vec_dimension). Multiply is faster than divide so
+	 * precompute 1 / RAND_MAX and 1 / dim. */
+	r = 1.0 / RAND_MAX;
+	l = 1.0 / dim;
+	for (i = 0; i < vocab_size; ++i)
+		for (j = 0; j < dim; ++j)
+			WI[i * dim + j] = ( (rand() * r) - 0.5 ) * l;
 }
 
-/* free the memory allocated for matrices WI and WO */
+/* destroy_network: free the memory allocated for matrices WI and WO */
 void destroy_network()
 {
 	if (WI != NULL)
@@ -556,39 +570,33 @@ void destroy_network()
 
 void *train_thread(void *id)
 {
-	/* open input file */
-	FILE *fi = fopen(input_file, "r");
-	if (fi == NULL)
+	FILE *fi;
+	char word[MAXLEN];
+	int w_t, w_c, c, d, target, line_size, pos, line[MAXLINE];
+	int index1, index2, k, half_ws, helper;
+	long word_count_local, negsamp_discarded, negsamp_total;
+	float label, dot_prod, grad, *hidden;
+	double progress, wts, discarded, cps, d_train, lr_coef;
+
+	clock_t now;
+	int rnd = (intptr_t) id;
+
+	if ((fi = fopen(input_file, "r")) == NULL)
 	{
 		printf("ERROR: training data file not found!\n");
 		exit(1);
 	}
 
-	/* move to the appropriate section of input file */
-	fseek(fi, file_size / num_threads * (int64_t) id, SEEK_SET);
-
-	/* variables to store word indexes as we process them */
-	int32_t w_t, w_c, c, target;
-
-	/* variables to read words from input file */
-	int32_t line[MAX_LINE_LENGTH], line_size, pos;
-	char word[MAX_STRING];
-
-	/* variables to count number of words processed by thread */
-	int32_t word_count_local = 0, negsamp_discarded = 0, negsamp_total = 0;
-
-	/* variables to compute forward/backward propagation */
-	int32_t index1, index2, k;
-	float label, dot_prod, grad;
-	float *hidden = (float *)calloc(dim, sizeof(float));
-
-	/* other variables */
-	clock_t now;
-	uint32_t rnd = (uint32_t)(uintptr_t) id;
-	int32_t half_ws = window / 2, helper = SIGMOID_SIZE / MAX_SIGMOID / 2;
-	float progress, wts = 0, discarded = 0, cps = 1000.0 / CLOCKS_PER_SEC,
-	      d_train = 1.0 / train_words,
-	      lr_coef = starting_alpha / (float) (epoch * train_words);
+	/* init variables */
+	fseek(fi, file_size / num_threads * rnd, SEEK_SET);
+	word_count_local = negsamp_discarded = negsamp_total = 0;
+	hidden           = calloc(dim, sizeof *hidden);
+	half_ws          = window / 2;
+	helper           = SIGMOID_SIZE / MAX_SIGMOID / 2;
+	wts = discarded  = 0.0f;
+	cps              = 1000.0f / CLOCKS_PER_SEC;
+	d_train          = 1.0f / train_words;
+	lr_coef          = starting_alpha / ((double) (epoch * train_words));
 
 	while (word_count_actual < (train_words * (current_epoch + 1)))
 	{
@@ -598,14 +606,14 @@ void *train_thread(void *id)
 			alpha -= word_count_local * lr_coef;
 			word_count_actual += word_count_local;
 			word_count_local = 0;
-			now=clock();
+			now = clock();
 
 			/* "Discarded" is the percentage of discarded negative
-			 samples because they form either a strong or a weak
-			 pair with context word */
+			 * samples because they form either a strong or a weak
+			 * pair with context word */
 			progress = word_count_actual * d_train * 100;
 			progress -= 100 * current_epoch;
-			wts = word_count_actual / ((float)(now - start) * cps);
+			wts = word_count_actual / ((double)(now - start) * cps);
 			discarded = negsamp_discarded * 100.0 / negsamp_total;
 			printf("%clr: %f  Progress: %.2f%%  Words/thread/sec:"
 			       " %.2fk  Discarded: %.2f%% ",
@@ -613,15 +621,15 @@ void *train_thread(void *id)
 			fflush(stdout);
 		}
 
-		/* read MAX_LINE_LENGTH words from input file. Add words in
-		 line[] if they are in vocabulary and not discarded. So length
-		 of line might be less than MAX_LINE_LENGTH (in practice,
-		 length of line is 500 +/- 50. */
+		/* read MAXLINE words from input file. Add words in line[] if
+		 * they are in vocabulary and not discarded. So length of line
+		 * might be less than MAXLINE (in practice, length of line is
+		 * 500 +/- 50. */
 		line_size = 0;
-		for (k = MAX_LINE_LENGTH; k--;)
+		for (k = MAXLINE; k--;)
 		{
 			read_word(word, fi);
-			w_t = vocab_hash[find(word, vocab_hash_size)];
+			w_t = vocab_hash[find(word)];
 
 			/* word is not in vocabulary, move to next one */
 			if (w_t == -1)
@@ -653,10 +661,10 @@ void *train_thread(void *id)
 				index1 = w_c * dim;
 
 				/* zero the hidden vector */
-				memset(hidden, 0.0, dim * sizeof(float));
+				memset(hidden, 0.0, dim * sizeof *hidden);
 
 				/* STANDARD AND NEGATIVE SAMPLING UPDATE */
-				for (uint_fast8_t d = negative+1; d--;)
+				for (d = negative+1; d--;)
 				{
 					/* target is central word */
 					if (d == 0)
@@ -677,10 +685,10 @@ void *train_thread(void *id)
 
 						/* if random word form a strong a weak pair
 						 with w_c, move to next one */
-						if (contains(vocab[w_c].strong_pairs, target,
-						             vocab[w_c].num_strong_pairs) ||
-						    contains(vocab[w_c].weak_pairs, target,
-						             vocab[w_c].num_weak_pairs))
+						if (contains(vocab[w_c].sp, target,
+						             vocab[w_c].n_sp) ||
+						    contains(vocab[w_c].wp, target,
+						             vocab[w_c].n_wp))
 						{
 							++negsamp_discarded;
 							continue;
@@ -717,18 +725,16 @@ void *train_thread(void *id)
 				}
 
 				/* POSITIVE SAMPLING UPDATE (strong pairs) */
-				int32_t num_sp = vocab[w_c].num_strong_pairs;
-				for (uint_fast8_t d = strong_draws; d--;)
+				for (d = strong_draws; d--;)
 				{
 					/* can't do anything if no strong pairs
-					 * */
-					if (num_sp == 0)
+					 */
+					if (vocab[w_c].n_sp == 0)
 						break;
 
-					if (vocab[w_c].pos_strong_pairs > num_sp - 1)
-						vocab[w_c].pos_strong_pairs = 0;
-					target = vocab[w_c].strong_pairs[
-					           vocab[w_c].pos_strong_pairs++];
+					if (vocab[w_c].pos_sp > vocab[w_c].n_sp - 1)
+						vocab[w_c].pos_sp = 0;
+					target = vocab[w_c].sp[vocab[w_c].pos_sp++];
 
 					index2 = target * dim;
 					dot_prod = 0;
@@ -752,17 +758,15 @@ void *train_thread(void *id)
 				}
 
 				/* POSITIVE SAMPLING UPDATE (weak pairs) */
-				int32_t num_wp = vocab[w_c].num_weak_pairs;
-				for (uint_fast8_t d = weak_draws; d--;)
+				for (d = weak_draws; d--;)
 				{
 					/* can't do anything if no weak pairs */
-					if (num_wp == 0)
+					if (vocab[w_c].n_wp == 0)
 						break;
 
-					if (vocab[w_c].pos_weak_pairs > num_wp - 1)
-						vocab[w_c].pos_weak_pairs = 0;
-					target = vocab[w_c].weak_pairs[
-					           vocab[w_c].pos_weak_pairs++];
+					if (vocab[w_c].pos_wp > vocab[w_c].n_wp - 1)
+						vocab[w_c].pos_wp = 0;
+					target = vocab[w_c].wp[vocab[w_c].pos_wp++];
 
 					index2 = target * dim;
 					dot_prod = 0;
@@ -806,13 +810,14 @@ void *train_thread(void *id)
 
 /* save the word vectors in output file. If epoch > 0, add the suffix
  indicating the epoch */
-void save_vectors(char *output, int32_t epoch)
+void save_vectors(char *output, int epoch)
 {
 	FILE *fo;
+	char suffix[15], copy[MAXLEN];
+	int i, j;
 
 	if (epoch > 0)
 	{
-		char suffix[15], copy[MAX_STRING];
 		sprintf(suffix, "-epoch-%d.vec", epoch);
 		strcpy(copy, output);
 		fo = fopen(strcat(copy, suffix), "w");
@@ -827,15 +832,14 @@ void save_vectors(char *output, int32_t epoch)
 		exit(1);
 	}
 
-
 	/* first line is number of vectors + dimension */
-	fprintf(fo, "%" PRId64 " %d\n", vocab_size, dim);
+	fprintf(fo, "%ld %d\n", vocab_size, dim);
 
-	for (int32_t i = 0; i < vocab_size; i++)
+	for (i = 0; i < vocab_size; i++)
 	{
 		fprintf(fo, "%s ", vocab[i].word);
 
-		for (int32_t j = 0; j < dim; j++)
+		for (j = 0; j < dim; j++)
 			fprintf(fo, "%.3f ", WI[i * dim + j]);
 
 		fprintf(fo, "\n");
@@ -848,11 +852,10 @@ void save_vectors(char *output, int32_t epoch)
 void train()
 {
 	/* variable for future use */
-	int64_t i;
+	int i;
+	pthread_t *threads;
 
-	/* instantiate array containing all the threads */
-	pthread_t *threads = (pthread_t *) calloc(num_threads, sizeof(pthread_t));
-	if (threads == NULL)
+	if ((threads = calloc(num_threads, sizeof *threads)) == NULL)
 	{
 		printf("Cannot allocate memory for threads\n");
 		exit(1);
@@ -880,10 +883,10 @@ void train()
 
 		/* create threads */
 		for (i = 0; i < num_threads; i++)
-			pthread_create(&threads[i], NULL, train_thread, (void *)i);
+			pthread_create(&threads[i], NULL, train_thread, (void *) (intptr_t) i);
 
 		/* wait for threads to join. When they join, epoch is finished
-		 * */
+		 */
 		for (i = 0; i < num_threads; i++)
 			pthread_join(threads[i], NULL);
 
@@ -896,7 +899,7 @@ void train()
 	}
 
 	/* save the file only if we didn't save it earlier with the
-	save-each-epoch option */
+	 * save-each-epoch option */
 	if (!save_each_epoch)
 	{
 		printf("\n-- Saving word embeddings\n");
@@ -908,11 +911,13 @@ void train()
 	destroy_vocab();
 }
 
-int32_t arg_pos(char *str, int32_t argc, char **argv)
+int arg_pos(char *str, int argc, char **argv)
 {
+	int a;
+
 	/* goes from 1 to argc-1 because position of option str can't be
 	 0 (program name) or last element of argv */
-	for (int32_t a = 1; a < argc - 1; ++a)
+	for (a = 1; a < argc - 1; ++a)
 	{
 		if (!strcmp(str, argv[a]))
 			return a;
@@ -927,7 +932,9 @@ void print_help()
 	"Dict2vec: Learning Word Embeddings using Lexical Dictionaries\n"
 	"Author: Julien Tissier <30314448+tca19@users.noreply.github.com>\n\n"
 
-	"Options:\n"
+	"Options:\n");
+
+	printf(
 	"  -input <file>\n"
 	"    Train the model with text data from <file>\n\n"
 	"  -strong-file <file>\n"
@@ -940,6 +947,9 @@ void print_help()
 	"    Size of word vectors; default 100\n\n"
 	"  -window <int>\n"
 	"    Window size for target/context pairs generation; default 5\n\n"
+	);
+
+	printf(
 	"  -sample <float>\n"
 	"    Value of the threshold t used for subsampling frequent words in\n"
 	"    the original word2vec paper of Mikolov; default 1e-4\n\n"
@@ -951,6 +961,9 @@ void print_help()
 	"    Number of strong pairs picked for positive sampling; default 0\n\n"
 	"  -weak-draws <int>\n"
 	"    Number of weak pairs picked for positive sampling; default 0\n\n"
+	);
+
+	printf(
 	"  -beta-strong <float>\n"
 	"    Coefficient for strong pairs; default 1.0\n\n"
 	"  -beta-weak <float>\n"
@@ -963,6 +976,9 @@ void print_help()
 	"    Number of epoch; default 1\n\n"
 	"  -save-each-epoch <int>\n"
 	"    Save the embeddings after each epoch; 0 (off, default), 1 (on)\n\n"
+	);
+
+	printf(
 	"\nUsage:\n"
 	"./dict2vec -input data/enwiki-50M -output data/enwiki-50M \\\n"
 	"-strong-file data/strong-pairs.txt -weak-file data/weak-pairs.txt \\\n"
@@ -972,8 +988,11 @@ void print_help()
 	);
 }
 
-int32_t main(int32_t argc, char **argv)
+int main(int argc, char **argv)
 {
+	int i;
+	float d;
+
 	/* no arguments given. Print help and exit */
 	if (argc == 1)
 	{
@@ -982,7 +1001,6 @@ int32_t main(int32_t argc, char **argv)
 	}
 
 	/* get the value of each parameter */
-	int32_t i;
 	if ((i = arg_pos("-input", argc, argv)) > 0)
 		strcpy(input_file, argv[i + 1]);
 	else
@@ -1041,7 +1059,7 @@ int32_t main(int32_t argc, char **argv)
 
 	/* initialise vocabulary table */
 	vocab = (struct entry *)calloc(vocab_max_size, sizeof(struct entry));
-	vocab_hash = (int *)calloc(vocab_hash_size, sizeof(int));
+	vocab_hash = (int *)calloc(HASHSIZE, sizeof(int));
 
 	/* initialise the sigmoid table. The array represents the values of the
 	sigmoid function from -MAX_SIGMOID to MAX_SIGMOID. The array
@@ -1061,7 +1079,7 @@ int32_t main(int32_t argc, char **argv)
 	}
 
 	/* faster to multiply than divide so pre-compute 1/ SIGMOID_SIZE */
-	float d = 1 / (float) SIGMOID_SIZE;
+	d = 1 / (float) SIGMOID_SIZE;
 	for (i = 0; i < SIGMOID_SIZE + 1; ++i)
 	{
 		/* start by computing exp(X) */
