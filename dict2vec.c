@@ -66,14 +66,14 @@ struct entry *vocab;
 
 /* default hyperparameters */
 int dim = 100, window = 5, min_count = 5, negative = 0,
-        strong_draws = 0, weak_draws = 0,
-        num_threads = 1, epoch = 1, save_each_epoch = 0;
+	strong_draws = 0, weak_draws = 0,
+	num_threads = 1, epoch = 1, save_each_epoch = 0;
 float   alpha = 0.025, starting_alpha, sample = 0,
-        beta_strong = 1.0, beta_weak = 0.25;
+	beta_strong = 1.0, beta_weak = 0.25;
 
 /* variables required for processing input file */
 long vocab_max_size = 10000, vocab_size = 0, train_words = 0, file_size = 0,
-        word_count_actual = 0;
+	word_count_actual = 0;
 
 
 int *vocab_hash;   /* hash table to know index of a word */
@@ -809,7 +809,7 @@ void *train_thread(void *id)
 }
 
 /* save the word vectors in output file. If epoch > 0, add the suffix
- indicating the epoch */
+ * indicating the epoch */
 void save_vectors(char *output, int epoch)
 {
 	FILE *fo;
@@ -928,13 +928,16 @@ int arg_pos(char *str, int argc, char **argv)
 
 void print_help()
 {
+	/* ISO 90 forbids strings longer than 509 characters (including
+	 * concatenated strings, so documentation is splitted into multiple
+	 * strings. */
 	printf(
 	"Dict2vec: Learning Word Embeddings using Lexical Dictionaries\n"
 	"Author: Julien Tissier <30314448+tca19@users.noreply.github.com>\n\n"
-
-	"Options:\n");
+	);
 
 	printf(
+	"Options:\n"
 	"  -input <file>\n"
 	"    Train the model with text data from <file>\n\n"
 	"  -strong-file <file>\n"
@@ -943,13 +946,13 @@ void print_help()
 	"    Add weak pairs data from <file> to improve the model\n\n"
 	"  -output <file>\n"
 	"    Save word embeddings in <file>\n\n"
+	);
+
+	printf(
 	"  -size <int>\n"
 	"    Size of word vectors; default 100\n\n"
 	"  -window <int>\n"
 	"    Window size for target/context pairs generation; default 5\n\n"
-	);
-
-	printf(
 	"  -sample <float>\n"
 	"    Value of the threshold t used for subsampling frequent words in\n"
 	"    the original word2vec paper of Mikolov; default 1e-4\n\n"
@@ -957,29 +960,29 @@ void print_help()
 	"    Do not train words with less than <int> occurrences; default 5\n\n"
 	"  -negative <int>\n"
 	"    Number of random words used for negative sampling; default 5\n\n"
+	"  -alpha <float>\n"
+	"    Starting learning rate; default 0.025\n\n"
+	);
+
+	printf(
 	"  -strong-draws <int>\n"
 	"    Number of strong pairs picked for positive sampling; default 0\n\n"
 	"  -weak-draws <int>\n"
 	"    Number of weak pairs picked for positive sampling; default 0\n\n"
-	);
-
-	printf(
 	"  -beta-strong <float>\n"
 	"    Coefficient for strong pairs; default 1.0\n\n"
 	"  -beta-weak <float>\n"
 	"    Coefficient for weak pairs; default 0.25\n\n"
-	"  -alpha <float>\n"
-	"    Starting learning rate; default 0.025\n\n"
 	"  -threads <int>\n"
 	"    Number of threads to use; default 1\n\n"
 	"  -epoch <int>\n"
 	"    Number of epoch; default 1\n\n"
 	"  -save-each-epoch <int>\n"
-	"    Save the embeddings after each epoch; 0 (off, default), 1 (on)\n\n"
+	"    Save the embeddings after each epoch; 0 (off, default), 1 (on)"
 	);
 
 	printf(
-	"\nUsage:\n"
+	"\n\nUsage:\n"
 	"./dict2vec -input data/enwiki-50M -output data/enwiki-50M \\\n"
 	"-strong-file data/strong-pairs.txt -weak-file data/weak-pairs.txt \\\n"
 	"-size 100 -window 5 -sample 1e-4 -min-count 5 -negative 5 \\\n"
