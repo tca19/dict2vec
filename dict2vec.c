@@ -97,8 +97,8 @@ int contains(int *array, int value, int size)
 	return 0;
 }
 
-/* shuffle: arrange the elements of array in random order. Swap two random
- * cells N times (N is the size of array).
+/* shuffle: arrange the elements of array in random order. Swap two random cells
+ * N times (N is the size of array).
  */
 void shuffle(int *array, int size)
 {
@@ -173,36 +173,6 @@ void compute_discard_prob()
 	w = sqrt(sample * train_words);
 	for (i = 0; i < vocab_size; ++i)
 		vocab[i].pdiscard = w / sqrt(vocab[i].count);
-}
-
-/* read_word: read a single word from a file, assume word boundaries are non
- * letter char. Return -1 if EOF, else return the size of read word.
- */
-int read_word(char *word, FILE *fi)
-{
-	int c, i;
-	i = 0;
-
-	/* move until we find a valid letter or EOF */
-	while (EOF != (c = fgetc(fi)) && !isalpha(c))
-		continue;
-
-	/* add letters to word until EOF or non letter char */
-	if (c != EOF)
-	{
-		do
-		{
-			word[i++] = c;
-			/* reduce i so we won't exceed size of word (which
-			 has a size of MAX_STRING) */
-			if (i > MAXLEN-1) i--;
-		} while (EOF != (c = fgetc(fi)) && isalpha(c));
-
-		word[i] = '\0';
-		return i;
-	}
-	else
-		return -1;
 }
 
 /* hash: form hash value for string s */
@@ -348,13 +318,8 @@ int read_strong_pairs()
 		return 1;
 	}
 
-	/* read file until EOF */
-	while (read_word(word1, fi) != -1)
+	while ((fscanf(fi, "%s %s", word1, word2) != EOF))
 	{
-		/* there are 2 words per line, so if we were able to read word1,
-		 we can read word2 */
-		read_word(word2, fi);
-
 		i1 = find(word1);
 		i2 = find(word2);
 
@@ -406,7 +371,6 @@ int read_weak_pairs()
 	char word1[MAXLEN], word2[MAXLEN];
 	int i1, i2, len;
 
-
 	if ((fi = fopen(wpairs_file, "r")) == NULL)
 	{
 		printf("WARNING: weak pairs data not found!\n"
@@ -414,13 +378,8 @@ int read_weak_pairs()
 		return 1;
 	}
 
-	/* read file until EOF */
-	while (read_word(word1, fi) != -1)
+	while ((fscanf(fi, "%s %s", word1, word2) != EOF))
 	{
-		/* there are 2 words per line, so if we were able to read word1,
-		 we can read word2 */
-		read_word(word2, fi);
-
 		i1 = find(word1);
 		i2 = find(word2);
 
@@ -483,8 +442,9 @@ void read_vocab()
 	for (i = 0; i < HASHSIZE; ++i)
 		vocab_hash[i] = -1;
 
-	/* read file until we get -1 (which is EOF) */
-	while (read_word(word, fi) != -1)
+	/* some words are longer than MAXLEN, need to indicate a maximum width
+	 * to scanf so no buffer overflow. */
+	while ((fscanf(fi, "%100s", word) != EOF))
 	{
 		/* increment total number of read words */
 		train_words++;
@@ -496,7 +456,6 @@ void read_vocab()
 
 		/* add word we just read or increment its count if needed */
 		add_word(word);
-
 
 		/* Wikipedia has around 8M unique words, so we never hit the
 		 * 21M words limit and therefore never need to reduce the vocab
@@ -628,7 +587,9 @@ void *train_thread(void *id)
 		line_size = 0;
 		for (k = MAXLINE; k--;)
 		{
-			read_word(word, fi);
+			/* some words are longer than MAXLEN, need to indicate a
+			 * maximum width to scanf so no buffer overflow. */
+			fscanf(fi, "%100s", word);
 			w_t = vocab_hash[find(word)];
 
 			/* word is not in vocabulary, move to next one */
