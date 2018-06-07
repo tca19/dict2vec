@@ -57,18 +57,36 @@ struct entry
 	float pdiscard; /* probability to discard entry when found in input */
 };
 
+struct parameters
+{
+	char input[MAXLEN];
+	char output[MAXLEN];
 
-char input_file[MAXLEN], output_file[MAXLEN];
+	int dim;
+	int window;
+	int min_count;
+	int negative;
+	int strong_draws;
+	int weak_draws;
+	int num_threads;
+	int epoch;
+	int save_each_epoch;
+
+	float alpha;
+	float starting_alpha;
+	float sample;
+	float beta_strong;
+	float beta_weak;
+};
 
 /* dynamic array containing 1 entry for each word in vocabulary */
 struct entry *vocab;
 
-/* default hyperparameters */
-int dim = 100, window = 5, min_count = 5, negative = 0,
-	strong_draws = 0, weak_draws = 0,
-	num_threads = 1, epoch = 1, save_each_epoch = 0;
-float   alpha = 0.025, starting_alpha, sample = 0,
-	beta_strong = 1.0, beta_weak = 0.25;
+struct parameters args = {
+	"", "",
+	100, 5, 5, 5, 0, 0, 1, 1, 0,
+	0.025, 0.025, 1e-4, 1.0, 0.25
+};
 
 /* variables required for processing input file */
 long vocab_max_size = 10000, vocab_size = 0, train_words = 0, file_size = 0,
@@ -169,7 +187,7 @@ void compute_discard_prob()
 	float w;
 
 	/* precompute sqrt(t * n) */
-	w = sqrt(sample * train_words);
+	w = sqrt(args.sample * train_words);
 	for (i = 0; i < vocab_size; ++i)
 		vocab[i].pdiscard = w / sqrt(vocab[i].count);
 }
@@ -272,7 +290,7 @@ void sort_and_reduce_vocab()
 
 	/* get the number of valid words (words with count >= min_count) */
 	valid_words = 0;
-	while (vocab[valid_words++].count >= min_count)
+	while (vocab[valid_words++].count >= args.min_count)
 		continue;
 
 	/* because valid_words has been incremented after the condition has
@@ -478,7 +496,7 @@ void read_vocab(char *input_fn, char *strong_fn, char *weak_fn)
 
 	/* compute the discard probability for each word (only if we
 	 * subsample)*/
-	if (sample > 0)
+	if (args.sample > 0)
 		compute_discard_prob();
 
 	/* each thread is assigned a part of the input file. To distribute
@@ -493,14 +511,14 @@ void init_network()
 	float r, l;
 	int i, j;
 
-	if ((WI = malloc(sizeof *WI * vocab_size * dim)) == NULL)
+	if ((WI = malloc(sizeof *WI * vocab_size * args.dim)) == NULL)
 	{
 		printf("Memory allocation failed for WI\n");
 		exit(1);
 	}
 
 
-	if ((WO = calloc(vocab_size * dim, sizeof *WO)) == NULL)
+	if ((WO = calloc(vocab_size * args.dim, sizeof *WO)) == NULL)
 	{
 		printf("Memory allocation failed for WO\n");
 		exit(1);
@@ -510,10 +528,10 @@ void init_network()
 	 * and (0.5 / vec_dimension). Multiply is faster than divide so
 	 * precompute 1 / RAND_MAX and 1 / dim. */
 	r = 1.0 / RAND_MAX;
-	l = 1.0 / dim;
+	l = 1.0 / args.dim;
 	for (i = 0; i < vocab_size; ++i)
-		for (j = 0; j < dim; ++j)
-			WI[i * dim + j] = ( (rand() * r) - 0.5 ) * l;
+		for (j = 0; j < args.dim; ++j)
+			WI[i * args.dim + j] = ( (rand() * r) - 0.5 ) * l;
 }
 
 /* destroy_network: free the memory allocated for matrices WI and WO */
@@ -539,29 +557,29 @@ void *train_thread(void *id)
 	clock_t now;
 	int rnd = (intptr_t) id;
 
-	if ((fi = fopen(input_file, "r")) == NULL)
+	if ((fi = fopen(args.input, "r")) == NULL)
 	{
 		printf("ERROR: training data file not found!\n");
 		exit(1);
 	}
 
 	/* init variables */
-	fseek(fi, file_size / num_threads * rnd, SEEK_SET);
+	fseek(fi, file_size / args.num_threads * rnd, SEEK_SET);
 	word_count_local = negsamp_discarded = negsamp_total = 0;
-	hidden           = calloc(dim, sizeof *hidden);
-	half_ws          = window / 2;
+	hidden           = calloc(args.dim, sizeof *hidden);
+	half_ws          = args.window / 2;
 	helper           = SIGMOID_SIZE / MAX_SIGMOID / 2;
 	wts = discarded  = 0.0f;
 	cps              = 1000.0f / CLOCKS_PER_SEC;
 	d_train          = 1.0f / train_words;
-	lr_coef          = starting_alpha / ((double) (epoch * train_words));
+	lr_coef          = args.starting_alpha / ((double) (args.epoch * train_words));
 
 	while (word_count_actual < (train_words * (current_epoch + 1)))
 	{
 		/* update learning rate and print progress */
 		if (word_count_local > 20000)
 		{
-			alpha -= word_count_local * lr_coef;
+			args.alpha -= word_count_local * lr_coef;
 			word_count_actual += word_count_local;
 			word_count_local = 0;
 			now = clock();
@@ -575,7 +593,7 @@ void *train_thread(void *id)
 			discarded = negsamp_discarded * 100.0 / negsamp_total;
 			printf("%clr: %f  Progress: %.2f%%  Words/thread/sec:"
 			       " %.2fk  Discarded: %.2f%% ",
-			       13, alpha, progress, wts, discarded);
+			       13, args.alpha, progress, wts, discarded);
 			fflush(stdout);
 		}
 
@@ -618,13 +636,13 @@ void *train_thread(void *id)
 					continue;
 
 				w_c = line[c];
-				index1 = w_c * dim;
+				index1 = w_c * args.dim;
 
 				/* zero the hidden vector */
-				memset(hidden, 0.0, dim * sizeof *hidden);
+				memset(hidden, 0.0, args.dim * sizeof *hidden);
 
 				/* STANDARD AND NEGATIVE SAMPLING UPDATE */
-				for (d = negative+1; d--;)
+				for (d = args.negative+1; d--;)
 				{
 					/* target is central word */
 					if (d == 0)
@@ -660,17 +678,17 @@ void *train_thread(void *id)
 
 
 					/* forward propagation */
-					index2 = target * dim;
+					index2 = target * args.dim;
 					dot_prod = 0.0;
-					for (k = 0; k < dim; ++k)
+					for (k = 0; k < args.dim; ++k)
 						dot_prod += WI[index1 + k] * WO[index2 + k];
 
 					if (dot_prod > MAX_SIGMOID)
-						grad = alpha * (label - 1.0);
+						grad = args.alpha * (label - 1.0);
 					else if (dot_prod < -MAX_SIGMOID)
-						grad = alpha * label;
+						grad = args.alpha * label;
 					else
-						grad = alpha * (label - sigmoid[(int)
+						grad = args.alpha * (label - sigmoid[(int)
 						       ((dot_prod + MAX_SIGMOID) * helper)]);
 
 					/* back-propagation. 2 for loops is more
@@ -678,14 +696,14 @@ void *train_thread(void *id)
 					 can load the entire hidden array in
 					 cache. Using a unique for loop to do
 					 the 2 operations is slower. */
-					for (k = 0; k < dim; ++k)
+					for (k = 0; k < args.dim; ++k)
 						hidden[k] += grad * WO[index2 + k];
-					for (k = 0; k < dim; ++k)
+					for (k = 0; k < args.dim; ++k)
 						WO[index2 + k] += grad * WI[index1 + k];
 				}
 
 				/* POSITIVE SAMPLING UPDATE (strong pairs) */
-				for (d = strong_draws; d--;)
+				for (d = args.strong_draws; d--;)
 				{
 					/* can't do anything if no strong pairs
 					 */
@@ -696,29 +714,29 @@ void *train_thread(void *id)
 						vocab[w_c].pos_sp = 0;
 					target = vocab[w_c].sp[vocab[w_c].pos_sp++];
 
-					index2 = target * dim;
+					index2 = target * args.dim;
 					dot_prod = 0;
-					for (k = 0; k < dim; ++k)
+					for (k = 0; k < args.dim; ++k)
 						dot_prod += WI[index1 + k] * WO[index2 + k];
 
 					/* dot product is already high, nothing to do */
 					if (dot_prod > MAX_SIGMOID)
 						continue;
 					else if (dot_prod < -MAX_SIGMOID)
-						grad = alpha * beta_strong;
+						grad = args.alpha * args.beta_strong;
 					else
-						grad = alpha * beta_strong *
+						grad = args.alpha * args.beta_strong *
 						    (1 - sigmoid[(int)((dot_prod + MAX_SIGMOID) * helper)]);
 
 
-					for (k = 0; k < dim; ++k)
+					for (k = 0; k < args.dim; ++k)
 						hidden[k] += grad * WO[index2 + k];
-					for (k = 0; k < dim; ++k)
+					for (k = 0; k < args.dim; ++k)
 						WO[index2 + k] += grad * WI[index1 + k];
 				}
 
 				/* POSITIVE SAMPLING UPDATE (weak pairs) */
-				for (d = weak_draws; d--;)
+				for (d = args.weak_draws; d--;)
 				{
 					/* can't do anything if no weak pairs */
 					if (vocab[w_c].n_wp == 0)
@@ -728,27 +746,27 @@ void *train_thread(void *id)
 						vocab[w_c].pos_wp = 0;
 					target = vocab[w_c].wp[vocab[w_c].pos_wp++];
 
-					index2 = target * dim;
+					index2 = target * args.dim;
 					dot_prod = 0;
-					for (k = 0; k < dim; ++k)
+					for (k = 0; k < args.dim; ++k)
 						dot_prod += WI[index1 + k] * WO[index2 + k];
 
 					if (dot_prod > MAX_SIGMOID)
 						continue;
 					else if (dot_prod < -MAX_SIGMOID)
-						grad = alpha * beta_weak;
+						grad = args.alpha * args.beta_weak;
 					else
-						grad = alpha * beta_weak *
+						grad = args.alpha * args.beta_weak *
 						    (1 - sigmoid[(int)((dot_prod + MAX_SIGMOID) * helper)]);
 
-					for (k = 0; k < dim; ++k)
+					for (k = 0; k < args.dim; ++k)
 						hidden[k] += grad * WO[index2 + k];
-					for (k = 0; k < dim; ++k)
+					for (k = 0; k < args.dim; ++k)
 						WO[index2 + k] += grad * WI[index1 + k];
 				}
 
 				/* Back-propagate hidden -> input */
-				for (k = 0; k < dim; ++k)
+				for (k = 0; k < args.dim; ++k)
 					WI[index1 + k] += hidden[k];
 
 			} /* end for each word in the context window */
@@ -758,9 +776,9 @@ void *train_thread(void *id)
 
 	/* sometimes, progress go over 100% because of rounding float error.
 	print a proper 100% progress */
-	if (alpha < 0) alpha = 0;
+	if (args.alpha < 0) args.alpha = 0;
 	printf("%clr: %f  Progress: %.2f%%  Words/thread/sec: %.2fk  Discarded:"
-	       " %.2f%% ", 13, alpha, 100.0, wts, discarded);
+	       " %.2f%% ", 13, args.alpha, 100.0, wts, discarded);
 	fflush(stdout);
 
 	fclose(fi);
@@ -793,14 +811,14 @@ void save_vectors(char *output, int epoch)
 	}
 
 	/* first line is number of vectors + dimension */
-	fprintf(fo, "%ld %d\n", vocab_size, dim);
+	fprintf(fo, "%ld %d\n", vocab_size, args.dim);
 
 	for (i = 0; i < vocab_size; i++)
 	{
 		fprintf(fo, "%s ", vocab[i].word);
 
-		for (j = 0; j < dim; j++)
-			fprintf(fo, "%.3f ", WI[i * dim + j]);
+		for (j = 0; j < args.dim; j++)
+			fprintf(fo, "%.3f ", WI[i * args.dim + j]);
 
 		fprintf(fo, "\n");
 	}
@@ -888,6 +906,53 @@ void print_help()
 	);
 }
 
+void parse_args(int argc, char **argv, struct parameters *args,
+		char *spairs_file, char *wpairs_file)
+{
+	for (++argv, --argc; argc >= 2; ++argv, argc -= 2)
+	{
+		/* string arguments */
+		if (strcmp(*argv, "-strong-file") == 0)
+			strcpy(spairs_file, *++argv);
+		if (strcmp(*argv, "-weak-file") == 0)
+			strcpy(wpairs_file, *++argv);
+		if (strcmp(*argv, "-input") == 0)
+			strcpy(args->input, *++argv);
+		if (strcmp(*argv, "-output") == 0)
+			strcpy(args->output, *++argv);
+
+		/* integer arguments */
+		if (strcmp(*argv, "-size") == 0)
+			args->dim = atoi(*++argv);
+		if (strcmp(*argv, "-window") == 0)
+			args->window = atoi(*++argv);
+		if (strcmp(*argv, "-min-count") == 0)
+			args->min_count = atoi(*++argv);
+		if (strcmp(*argv, "-negative") == 0)
+			args->negative = atoi(*++argv);
+		if (strcmp(*argv, "-strong-draws") == 0)
+			args->strong_draws = atoi(*++argv);
+		if (strcmp(*argv, "-weak-draws") == 0)
+			args->weak_draws = atoi(*++argv);
+		if (strcmp(*argv, "-threads") == 0)
+			args->num_threads = atoi(*++argv);
+		if (strcmp(*argv, "-epoch") == 0)
+			args->epoch = atoi(*++argv);
+		if (strcmp(*argv, "-save-each-epoch") == 0)
+			args->save_each_epoch = atoi(*++argv);
+
+		/* float arguments */
+		if (strcmp(*argv, "-alpha") == 0)
+			args->starting_alpha = args->alpha = atof(*++argv);
+		if (strcmp(*argv, "-sample") == 0)
+			args->sample = atof(*++argv);
+		if (strcmp(*argv, "-beta-strong") == 0)
+			args->beta_strong = atof(*++argv);
+		if (strcmp(*argv, "-beta-weak") == 0)
+			args->beta_weak = atof(*++argv);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	char spairs_file[MAXLEN], wpairs_file[MAXLEN];
@@ -902,62 +967,13 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	/* get the value of each parameter */
-	if ((i = arg_pos("-input", argc, argv)) > 0)
-		strcpy(input_file, argv[i + 1]);
-	else
+	parse_args(argc, argv, &args, spairs_file, wpairs_file);
+
+	if (strlen(args.input) == 0)
 	{
 		printf("Cannot train the model without: -input <file>\n");
 		exit(1);
 	}
-
-	if ((i = arg_pos("-strong-file", argc, argv)) > 0)
-		strcpy(spairs_file, argv[i + 1]);
-
-	if ((i = arg_pos("-weak-file", argc, argv)) > 0)
-		strcpy(wpairs_file, argv[i + 1]);
-
-	if ((i = arg_pos("-output", argc, argv)) > 0)
-		strcpy(output_file, argv[i + 1]);
-
-	if ((i = arg_pos("-size", argc, argv)) > 0)
-		dim = atoi(argv[i + 1]);
-
-	if ((i = arg_pos("-window", argc, argv)) > 0)
-		window = atoi(argv[i + 1]);
-
-	if ((i = arg_pos("-sample", argc, argv)) > 0)
-		sample = atof(argv[i + 1]);
-
-	if ((i = arg_pos("-min-count", argc, argv)) > 0)
-		min_count = atoi(argv[i + 1]);
-
-	if ((i = arg_pos("-negative", argc, argv)) > 0)
-		negative = atoi(argv[i + 1]);
-
-	if ((i = arg_pos("-strong-draws", argc, argv)) > 0)
-		strong_draws = atoi(argv[i + 1]);
-
-	if ((i = arg_pos("-weak-draws", argc, argv)) > 0)
-		weak_draws = atoi(argv[i + 1]);
-
-	if ((i = arg_pos("-beta-strong", argc, argv)) > 0)
-		beta_strong = atof(argv[i + 1]);
-
-	if ((i = arg_pos("-beta-weak", argc, argv)) > 0)
-		beta_weak = atof(argv[i + 1]);
-
-	if ((i = arg_pos("-alpha", argc, argv)) > 0)
-		alpha = atof(argv[i + 1]);
-
-	if ((i = arg_pos("-threads", argc, argv)) > 0)
-		num_threads = atoi(argv[i + 1]);
-
-	if ((i = arg_pos("-epoch", argc, argv)) > 0)
-		epoch = atoi(argv[i + 1]);
-
-	if ((i = arg_pos("-save-each-epoch", argc, argv)) > 0)
-		save_each_epoch = atoi(argv[i + 1]);
 
 	/* initialise vocabulary table */
 	vocab = (struct entry *)calloc(vocab_max_size, sizeof(struct entry));
@@ -993,55 +1009,53 @@ int main(int argc, char **argv)
 	/*********** train ***/
 	/* variable for future use */
 
-	if ((threads = calloc(num_threads, sizeof *threads)) == NULL)
+	if ((threads = calloc(args.num_threads, sizeof *threads)) == NULL)
 	{
 		printf("Cannot allocate memory for threads\n");
 		exit(1);
 	}
 
 	/* get words from input file */
-	printf("Starting training using file %s\n", input_file);
-	read_vocab(input_file, spairs_file, wpairs_file);
-
-	/* we need to save the starting alpha to update alpha during learning */
-	starting_alpha = alpha;
+	printf("Starting training using file %s\n", args.input);
+	read_vocab(args.input, spairs_file, wpairs_file);
 
 	/* instantiate the network */
 	init_network();
 
 	/* instantiate negative table (for negative sampling) */
-	if (negative > 0)
+	if (args.negative > 0)
 		init_negative_table();
 
 	/* train the model for multiple epoch */
 	start = clock();
-	for (current_epoch = 0; current_epoch < epoch; current_epoch++)
+	for (current_epoch = 0; current_epoch < args.epoch; current_epoch++)
 	{
-		printf("\n-- Epoch %d/%d\n", current_epoch+1, epoch);
+		printf("\n-- Epoch %d/%d\n", current_epoch+1, args.epoch);
 
 		/* create threads */
-		for (i = 0; i < num_threads; i++)
-			pthread_create(&threads[i], NULL, train_thread, (void *) (intptr_t) i);
+		for (i = 0; i < args.num_threads; i++)
+			pthread_create(&threads[i], NULL, train_thread,
+					(void *) (intptr_t) i);
 
 		/* wait for threads to join. When they join, epoch is finished
 		 */
-		for (i = 0; i < num_threads; i++)
+		for (i = 0; i < args.num_threads; i++)
 			pthread_join(threads[i], NULL);
 
-		if (save_each_epoch)
+		if (args.save_each_epoch)
 		{
 			printf("\nSaving vectors for epoch %d.", current_epoch+1);
-			save_vectors(output_file, current_epoch+1);
+			save_vectors(args.output, current_epoch+1);
 		}
 
 	}
 
 	/* save the file only if we didn't save it earlier with the
 	 * save-each-epoch option */
-	if (!save_each_epoch)
+	if (!args.save_each_epoch)
 	{
 		printf("\n-- Saving word embeddings\n");
-		save_vectors(output_file, -1);
+		save_vectors(args.output, -1);
 	}
 
 	free(table);
