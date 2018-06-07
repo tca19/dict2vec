@@ -59,7 +59,6 @@ struct entry
 
 
 char input_file[MAXLEN], output_file[MAXLEN];
-char spairs_file[MAXLEN], wpairs_file[MAXLEN];
 
 /* dynamic array containing 1 entry for each word in vocabulary */
 struct entry *vocab;
@@ -305,13 +304,13 @@ void sort_and_reduce_vocab()
 /* read_strong_pairs; read the file containing the strong pairs. For each pair,
  * add it in the vocab for both words involved.
  */
-int read_strong_pairs()
+int read_strong_pairs(char *filename)
 {
 	FILE *fi;
 	char word1[MAXLEN], word2[MAXLEN];
 	int i1, i2, len;
 
-	if ((fi = fopen(spairs_file, "r")) == NULL)
+	if ((fi = fopen(filename, "r")) == NULL)
 	{
 		printf("WARNING: strong pairs data not found!\n"
 		       "Not taken into account during learning.\n");
@@ -365,13 +364,13 @@ int read_strong_pairs()
 /* read_weak_pairs: read the file containing the weak pairs. For each pair, add
  * it in the vocab for both words involved.
  */
-int read_weak_pairs()
+int read_weak_pairs(char *filename)
 {
 	FILE *fi;
 	char word1[MAXLEN], word2[MAXLEN];
 	int i1, i2, len;
 
-	if ((fi = fopen(wpairs_file, "r")) == NULL)
+	if ((fi = fopen(filename, "r")) == NULL)
 	{
 		printf("WARNING: weak pairs data not found!\n"
 		       "Not taken into account during learning.\n");
@@ -426,13 +425,13 @@ int read_weak_pairs()
  * the vocab or increment its occurrence. Also read the strong and weak pairs
  * files if provided. Sort the vocabulary by occurrences and display some infos.
  */
-void read_vocab()
+void read_vocab(char *input_fn, char *strong_fn, char *weak_fn)
 {
 	FILE *fi;
 	int i, failure_strong, failure_weak;
 	char word[MAXLEN];
 
-	if ((fi = fopen(input_file, "r")) == NULL)
+	if ((fi = fopen(input_fn, "r")) == NULL)
 	{
 		printf("ERROR: training data file not found!\n");
 		exit(1);
@@ -471,9 +470,9 @@ void read_vocab()
 	printf("Words in train file: %ld\n", train_words);
 
 	printf("Adding strong pairs...");
-	failure_strong = read_strong_pairs();
+	failure_strong = read_strong_pairs(strong_fn);
 	printf("\nAdding weak pairs...");
-	failure_weak = read_weak_pairs();
+	failure_weak = read_weak_pairs(weak_fn);
 	if (!failure_strong || !failure_weak)
 		printf("\nAdding pairs done.\n");
 
@@ -809,69 +808,6 @@ void save_vectors(char *output, int epoch)
 	fclose(fo);
 }
 
-/* function called from main */
-void train()
-{
-	/* variable for future use */
-	int i;
-	pthread_t *threads;
-
-	if ((threads = calloc(num_threads, sizeof *threads)) == NULL)
-	{
-		printf("Cannot allocate memory for threads\n");
-		exit(1);
-	}
-
-	/* get words from input file */
-	printf("Starting training using file %s\n", input_file);
-	read_vocab();
-
-	/* we need to save the starting alpha to update alpha during learning */
-	starting_alpha = alpha;
-
-	/* instantiate the network */
-	init_network();
-
-	/* instantiate negative table (for negative sampling) */
-	if (negative > 0)
-		init_negative_table();
-
-	/* train the model for multiple epoch */
-	start = clock();
-	for (current_epoch = 0; current_epoch < epoch; current_epoch++)
-	{
-		printf("\n-- Epoch %d/%d\n", current_epoch+1, epoch);
-
-		/* create threads */
-		for (i = 0; i < num_threads; i++)
-			pthread_create(&threads[i], NULL, train_thread, (void *) (intptr_t) i);
-
-		/* wait for threads to join. When they join, epoch is finished
-		 */
-		for (i = 0; i < num_threads; i++)
-			pthread_join(threads[i], NULL);
-
-		if (save_each_epoch)
-		{
-			printf("\nSaving vectors for epoch %d.", current_epoch+1);
-			save_vectors(output_file, current_epoch+1);
-		}
-
-	}
-
-	/* save the file only if we didn't save it earlier with the
-	 * save-each-epoch option */
-	if (!save_each_epoch)
-	{
-		printf("\n-- Saving word embeddings\n");
-		save_vectors(output_file, -1);
-	}
-
-	free(table);
-	free(threads);
-	destroy_vocab();
-}
-
 int arg_pos(char *str, int argc, char **argv)
 {
 	int a;
@@ -954,8 +890,10 @@ void print_help()
 
 int main(int argc, char **argv)
 {
+	char spairs_file[MAXLEN], wpairs_file[MAXLEN];
 	int i;
 	float d;
+	pthread_t *threads;
 
 	/* no arguments given. Print help and exit */
 	if (argc == 1)
@@ -1052,7 +990,66 @@ int main(int argc, char **argv)
 		sigmoid[i] = sigmoid[i] / (sigmoid[i] + 1);
 	}
 
-	train();
+	/*********** train ***/
+	/* variable for future use */
+
+	if ((threads = calloc(num_threads, sizeof *threads)) == NULL)
+	{
+		printf("Cannot allocate memory for threads\n");
+		exit(1);
+	}
+
+	/* get words from input file */
+	printf("Starting training using file %s\n", input_file);
+	read_vocab(input_file, spairs_file, wpairs_file);
+
+	/* we need to save the starting alpha to update alpha during learning */
+	starting_alpha = alpha;
+
+	/* instantiate the network */
+	init_network();
+
+	/* instantiate negative table (for negative sampling) */
+	if (negative > 0)
+		init_negative_table();
+
+	/* train the model for multiple epoch */
+	start = clock();
+	for (current_epoch = 0; current_epoch < epoch; current_epoch++)
+	{
+		printf("\n-- Epoch %d/%d\n", current_epoch+1, epoch);
+
+		/* create threads */
+		for (i = 0; i < num_threads; i++)
+			pthread_create(&threads[i], NULL, train_thread, (void *) (intptr_t) i);
+
+		/* wait for threads to join. When they join, epoch is finished
+		 */
+		for (i = 0; i < num_threads; i++)
+			pthread_join(threads[i], NULL);
+
+		if (save_each_epoch)
+		{
+			printf("\nSaving vectors for epoch %d.", current_epoch+1);
+			save_vectors(output_file, current_epoch+1);
+		}
+
+	}
+
+	/* save the file only if we didn't save it earlier with the
+	 * save-each-epoch option */
+	if (!save_each_epoch)
+	{
+		printf("\n-- Saving word embeddings\n");
+		save_vectors(output_file, -1);
+	}
+
+	free(table);
+	free(threads);
+	destroy_vocab();
+
+	/******** end train ****/
+
 	destroy_network();
 	free(vocab_hash);
 	free(sigmoid);
