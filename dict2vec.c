@@ -29,11 +29,10 @@
 #define MAXLEN       100
 #define MAXLINE      1000
 
-#define SIGMOID_SIZE 512
+#define SIGMOID_SIZE 1000
 #define MAX_SIGMOID  6
 
 #define HASHSIZE     30000000
-#define NEGSIZE      100000000
 
 struct entry
 {
@@ -51,6 +50,7 @@ struct entry
 	int n_wp;       /* number of weak pairs of entry */
 	int pos_wp;     /* current cursor position in wp[] */
 	int *wp;
+
 
 	long  count;    /* number of occurrences of entry in input file */
 	char  *word;    /* string associated to the entry */
@@ -93,15 +93,15 @@ long vocab_max_size = 10000, vocab_size = 0, train_words = 0, file_size = 0,
 	word_count_actual = 0;
 
 
-int hashtab[HASHSIZE];          /* hash table to know index of a word */
-int negtab[NEGSIZE];            /* array of indexes for negative sampling */
-float sigmoid[SIGMOID_SIZE];    /* precomputed sigmoid values */
-
+int *vocab_hash;   /* hash table to know index of a word */
 float *WI, *WO;    /* weight matrices */
+float *sigmoid;    /* precomputed sigmoid values */
+int *table;        /* array of indexes for negative sampling */
 
 /* other variables */
 clock_t start;
-int current_epoch = 0, neg_pos = 0;
+int current_epoch = 0, table_size = 1e7, neg_pos = 0;
+
 
 /* contains: return 1 if value is inside array. 0 otherwise. */
 int contains(int *array, int value, int size)
@@ -139,6 +139,15 @@ void init_negative_table()
 	int i, n_cells, pos;
 	float sum, d;
 
+	/* allocate memory for the negative table*/
+	table = calloc(table_size, sizeof *table);
+
+	if (table == NULL)
+	{
+		printf("Cannot allocate memory for the negative table\n");
+		exit(1);
+	}
+
 	/* compute the sum of count^0.75 for all words */
 	for (i = 0, sum = 0.0; i < vocab_size; ++i)
 		sum += pow(vocab[i].count, 0.75);
@@ -147,17 +156,21 @@ void init_negative_table()
 	for (i = 0, pos = 0, d = 1.0/sum; i < vocab_size; ++i)
 	{
 		/* compute number of cells reserved for word[i] */
-		n_cells = pow(vocab[i].count, 0.75) * NEGSIZE * d + 1;
+		n_cells = pow(vocab[i].count, 0.75) * table_size * d;
 
-		while (n_cells-- && pos < NEGSIZE)
-			negtab[pos++] = i;
+		while (n_cells--)
+			table[pos++] = i;
 	}
+
+	/* due to rounding point error, it is possible that we inserted less
+	 * than table_size values. So update the table_size to the real size. */
+	table_size = pos-1;
 
 	/* shuffle the array so we don't have to draw a new random index each
 	 * time we want a negative sample, simply keep a position_index, get the
-	 * negtab[position_index] value and increment position_index. This is the
-	 * same as drawing a new random index i and get negtab[i]. */
-	shuffle(negtab, NEGSIZE);
+	 * table[position_index] value and increment position_index. This is the
+	 * same as drawing a new random index i and get table[i]. */
+	shuffle(table, table_size);
 }
 
 /* compute_discard_prob: compute the discard probabilty of each word. The
@@ -189,15 +202,15 @@ unsigned int hash(char *s)
 	return hashval % HASHSIZE;
 }
 
-/* find: return the position of string s in hashtab. If word has never been
- * met, the cell at index hash(word) in hashtab will be -1. If the cell is
+/* find: return the position of string s in vocab_hash. If word has never been
+ * met, the cell at index hash(word) in vocab_hash will be -1. If the cell is
  * not -1, we start to compare word to each element with the same hash.
  */
 unsigned int find(char *s)
 {
 	unsigned int h = hash(s);
 
-	while (hashtab[h] != -1 && strcmp(s, vocab[hashtab[h]].word))
+	while (vocab_hash[h] != -1 && strcmp(s, vocab[vocab_hash[h]].word))
 		h = (h + 1) % HASHSIZE;
 	return h;
 }
@@ -206,7 +219,7 @@ unsigned int find(char *s)
 void add_word(char *word)
 {
 	unsigned int h = find(word);
-	if (hashtab[h] == -1)
+	if (vocab_hash[h] == -1)
 	{
 		/* create new entry */
 		struct entry e;
@@ -221,9 +234,9 @@ void add_word(char *word)
 		e.sp       = NULL;
 		e.wp       = NULL;
 
-		/* add it to vocab and set its index in hashtab */
+		/* add it to vocab and set its index in vocab_hash */
 		vocab[vocab_size] = e;
-		hashtab[h] = vocab_size++;
+		vocab_hash[h] = vocab_size++;
 
 		/* reallocate more space if needed */
 		if (vocab_size >= vocab_max_size)
@@ -234,7 +247,7 @@ void add_word(char *word)
 	}
 	else
 	{
-		vocab[hashtab[h]].count++;
+		vocab[vocab_hash[h]].count++;
 	}
 }
 
@@ -299,11 +312,11 @@ void sort_and_reduce_vocab()
 	vocab = realloc(vocab, vocab_size * sizeof(struct entry));
 
 	/* sorting has changed the index of each word, so update the value
-	 in hashtab. Start by reseting all values to -1.*/
+	 in vocab_hash. Start by reseting all values to -1.*/
 	for (i = 0; i < HASHSIZE; ++i)
-		hashtab[i] = -1;
+		vocab_hash[i] = -1;
 	for (i = 0; i < vocab_size; ++i)
-		hashtab[find(vocab[i].word)] = i;
+		vocab_hash[find(vocab[i].word)] = i;
 }
 
 /* read_strong_pairs; read the file containing the strong pairs. For each pair,
@@ -328,12 +341,12 @@ int read_strong_pairs(char *filename)
 		i2 = find(word2);
 
 		/* nothing to do if one of the word is not in vocab */
-		if (hashtab[i1] == -1 || hashtab[i2] == -1)
+		if (vocab_hash[i1] == -1 || vocab_hash[i2] == -1)
 			continue;
 
 		/* get the real indexes (not the index in the hash table) */
-		i1 = hashtab[i1];
-		i2 = hashtab[i2];
+		i1 = vocab_hash[i1];
+		i2 = vocab_hash[i2];
 
 		/* look if we already have added one strong pair for i1. If not,
 		 * create the array. Else, expand by one cell. */
@@ -388,12 +401,12 @@ int read_weak_pairs(char *filename)
 		i2 = find(word2);
 
 		/* nothing to do if one of the word is not in vocab */
-		if (hashtab[i1] == -1 || hashtab[i2] == -1)
+		if (vocab_hash[i1] == -1 || vocab_hash[i2] == -1)
 			continue;
 
 		/* get the real indexes (not the index in the hash table) */
-		i1 = hashtab[i1];
-		i2 = hashtab[i2];
+		i1 = vocab_hash[i1];
+		i2 = vocab_hash[i2];
 
 		/* look if we already have added one pair for i1. If not, create
 		the array. Else, expand by one cell. */
@@ -444,7 +457,7 @@ void read_vocab(char *input_fn, char *strong_fn, char *weak_fn)
 
 	/* init the hash table with -1 */
 	for (i = 0; i < HASHSIZE; ++i)
-		hashtab[i] = -1;
+		vocab_hash[i] = -1;
 
 	/* some words are longer than MAXLEN, need to indicate a maximum width
 	 * to scanf so no buffer overflow. */
@@ -594,7 +607,7 @@ void *train_thread(void *id)
 			/* some words are longer than MAXLEN, need to indicate a
 			 * maximum width to scanf so no buffer overflow. */
 			fscanf(fi, "%100s", word);
-			w_t = hashtab[find(word)];
+			w_t = vocab_hash[find(word)];
 
 			/* word is not in vocabulary, move to next one */
 			if (w_t == -1)
@@ -643,8 +656,8 @@ void *train_thread(void *id)
 					{
 						do
 						{
-							target = negtab[neg_pos++];
-							if (neg_pos >= NEGSIZE)
+							target = table[neg_pos++];
+							if (neg_pos > table_size-1)
 								neg_pos = 0;
 						} while (target == w_t);
 
@@ -963,7 +976,8 @@ int main(int argc, char **argv)
 	}
 
 	/* initialise vocabulary table */
-	vocab = calloc(vocab_max_size, sizeof(struct entry));
+	vocab = (struct entry *)calloc(vocab_max_size, sizeof(struct entry));
+	vocab_hash = (int *)calloc(HASHSIZE, sizeof(int));
 
 	/* initialise the sigmoid table. The array represents the values of the
 	sigmoid function from -MAX_SIGMOID to MAX_SIGMOID. The array
@@ -974,10 +988,17 @@ int main(int argc, char **argv)
 	  for i = [0 .. SIGMOID_SIZE]
 
 	One can verify that X goes from -MAX_SIGMOID to MAX_SIGMOID */
+	sigmoid = (float *)calloc(SIGMOID_SIZE + 1, sizeof(float));
+
+	if (sigmoid == NULL)
+	{
+		printf("Not enough memory to instantiate EXP table.\n");
+		exit(1);
+	}
 
 	/* faster to multiply than divide so pre-compute 1/ SIGMOID_SIZE */
 	d = 1 / (float) SIGMOID_SIZE;
-	for (i = 0; i < SIGMOID_SIZE ; ++i)
+	for (i = 0; i < SIGMOID_SIZE + 1; ++i)
 	{
 		/* start by computing exp(X) */
 		sigmoid[i] = exp( (((i * 2) - SIGMOID_SIZE) * d) * MAX_SIGMOID);
@@ -1037,12 +1058,15 @@ int main(int argc, char **argv)
 		save_vectors(args.output, -1);
 	}
 
+	free(table);
 	free(threads);
 	destroy_vocab();
 
 	/******** end train ****/
 
 	destroy_network();
+	free(vocab_hash);
+	free(sigmoid);
 
 	return 0;
 }
