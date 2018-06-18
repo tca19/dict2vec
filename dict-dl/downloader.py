@@ -19,8 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Dict2vec.  If not, see <http://www.gnu.org/licenses/>.
 
-from urllib.request import urlopen
 from urllib.error import HTTPError
+import urllib.request
 import re
 
 def download_cambridge(word, pos="all"):
@@ -30,7 +30,7 @@ def download_cambridge(word, pos="all"):
         pos = "all"
 
     try:
-        html = urlopen(URL).read().decode('utf-8')
+        html = urllib.request.urlopen(URL).read().decode('utf-8')
 
         # definitions are in a <b> tag that has the class "def"
         defs_pat = re.compile('<b class="def">(.*?)</b>', re.I|re.S)
@@ -94,7 +94,7 @@ def download_dictionary(word, pos="all"):
         pos = "all"
 
     try:
-        html = urlopen(URL).read().decode('utf-8')
+        html = urllib.request.urlopen(URL).read().decode('utf-8')
 
         # definitions are in <section> tags with class "css-1sdcacc". Each POS
         # type has its own <section>, so extract them all.
@@ -158,19 +158,34 @@ def download_dictionary(word, pos="all"):
         return -1
 
 def download_collins(word, pos="all"):
-    URL = "http://www.collinsdictionary.com/dictionary/english/" + word
+    URL = "https://www.collinsdictionary.com/dictionary/english/" + word
+
+    # Collins has set some server restrictions. Need to spoof the HTTP headers
+    headers = {
+        'User-Agent':
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like '
+            'Gecko) Chrome/23.0.1271.64 Safari/537.11',
+        'Accept':
+            'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Encoding':
+            'none',
+        'Accept-Language':
+            'en-US,en;q=0.8',
+        }
+    req = urllib.request.Request(URL, headers=headers)
 
     if pos not in ["all", "adjective", "noun", "verb"]:
         pos = "all"
 
     try:
-        html = urlopen(URL).read().decode('utf-8')
+        html = urllib.request.urlopen(req).read().decode('utf-8')
 
-        # definitions are in the big block <div class="content [...] ced [...]>
-        # Use the next <div> with "copyright" for ending regex.
-        block_p = re.compile(
-          '<div class="content .*? ced"(.*?)<div class="div copyri', re.I|re.S)
-        block_one = re.findall(block_p, html)[0]
+        # definitions are in big blocks <div class="content definitions [...] >
+        # Use the next <div> with "copyright" for ending regex. Regroup all
+        # blocks.
+        block_p = re.compile('<div class="content definitions.+?"(.*?)'
+                             '<div class="div copyright', re.I|re.S)
+        blocks = " ".join(re.findall(block_p, html))
 
         # inside this block, definitions are in <div class="def">...</div>
         defs_pat = re.compile('<div class="def">(.+?)</div>', re.I|re.S)
@@ -180,9 +195,9 @@ def download_collins(word, pos="all"):
 
             # each sense of the word is inside a <div class="hom">. Get all the
             # starting and ending indexes of these blocks
-            sense_pat = re.compile('<div class="hom">', re.I|re.S)
-            idx = [m.start() for m in sense_pat.finditer(block_one)]
-            idx.append(len(block_one))
+            sense_pat = re.compile('<div class="hom">', re.I| re.S)
+            idx = [m.start() for m in sense_pat.finditer(blocks)]
+            idx.append(len(blocks))
             span = [(idx[i], idx[i+1]) for i in range(len(idx)-1)]
 
             # then for each sense, I only extract the definitions if it matches
@@ -191,26 +206,25 @@ def download_collins(word, pos="all"):
             defs = []
 
             for start, end in span:
-                pos_extracted = re.search(pos_pat, block_one[start:end])
-
+                pos_extracted = re.search(pos_pat, blocks[start:end])
                 # sometimes, sense is just a sentence or an idiom, so no pos
                 # extracted
                 if pos_extracted is None:
                     continue
 
-                # noun is written as "countable noun". The split()[-1] trick is
-                # to only extract "noun" from "countable noun", but leaves
-                # "verb" as "verb".
-                pos_extracted = pos_extracted.group(1).split()[-1]
+                # noun is sometimes written as "countable noun". "verb" as
+                # "verb transitive". Use the `in` trick to match these 2
+                # categories with either "noun" or "verb"
+                pos_extracted = pos_extracted.group(1)
 
-                if pos_extracted != pos:
+                if pos not in pos_extracted:
                     continue
 
-                defs += re.findall(defs_pat, block_one[start:end])
+                defs += re.findall(defs_pat, blocks[start:end])
 
         # otherwise extract all definitions available
         else:
-            defs = re.findall(defs_pat, block_one)
+            defs = re.findall(defs_pat, blocks)
 
         # need to clean definitions of <a> and <span> tags. Use cleaner to
         # replace these tags by empty string, Use .strip() to also clean some
@@ -236,7 +250,7 @@ def download_oxford(word, pos="all"):
         pos = "all"
 
     try:
-        html = urlopen(URL).read().decode('utf-8')
+        html = urllib.request.urlopen(URL).read().decode('utf-8')
 
         # extract blocks containing POS type and definitions. For example, if
         # word is both a noun and a verb, there is one <section class="gramb">
@@ -323,11 +337,11 @@ def download_word_definition(dict_name, word, pos="all", clean=True):
 
 if __name__ == '__main__':
     #print("Cambridge")
-    #print(download_cambridge("bite", "all"))
+    #print(download_cambridge("wick", "all"))
     #print("dictionary.com")
     #print(download_dictionary("wick", "all"))
-    #print("\nCollins")
-    #print(download_collins("building", "noun"))
+    #print("Collins")
+    #print(download_collins("wick", "noun"))
     #print("\nOxford")
     #print("\n- ".join(download_oxford("wick", "adjective")))
 
