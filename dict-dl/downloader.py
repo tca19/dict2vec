@@ -336,15 +336,17 @@ def download_word_definition(dict_name, word, pos="all", clean=True):
     return words
 
 if __name__ == '__main__':
-    #print("Cambridge")
-    #print(download_cambridge("wick", "all"))
-    #print("dictionary.com")
-    #print(download_dictionary("wick", "all"))
-    #print("Collins")
-    #print(download_collins("wick", "noun"))
-    #print("\nOxford")
-    #print("\n- ".join(download_oxford("wick", "adjective")))
+    print("-- TEST : definitions of wick --")
+    print("Cambridge")
+    print(download_cambridge("wick", "all"))
+    print("\ndictionary.com")
+    print(download_dictionary("wick", "all"))
+    print("\nCollins")
+    print(download_collins("wick", "all"))
+    print("\nOxford")
+    print(download_oxford("wick", "all"))
 
+    print("\n\n-- TEST : definitions according to POS of alert --")
     print("dictionary.com -- alert [ADJECTIVE]")
     print(download_dictionary("alert", "adjective"))
     print()
