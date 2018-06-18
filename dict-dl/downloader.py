@@ -96,34 +96,29 @@ def download_dictionary(word, pos="all"):
     try:
         html = urlopen(URL).read().decode('utf-8')
 
-        # definitions are in a big block <div class="def-list">, but
-        # only the first block contains interesting definitions.
-        # Can't use </div> for regex ending because there are some <div>
-        # inside definitions, so i use the next big div.
-        block_p = re.compile('<div class="def-list">(.*?)<div class="tail-wrap',
-                             re.I|re.S)
-        block_one = re.findall(block_p, html)[0]
+        # definitions are in <section> tags with class "css-1sdcacc". Each POS
+        # type has its own <section>, so extract them all.
+        block_pat = re.compile('<section class="css-1sdcacc(.*?)</section>',
+                               re.I|re.S)
+        blocks = re.findall(block_pat, html)
 
-        # inside this block, all definitions are in <div class="def-content">.
-        # Sometimes closed by a new <div>, sometimes a closing </div> so ?/
-        # catches the two cases
-        defs_p = re.compile('<div class="def-content">(.+?)</?div', re.I|re.S)
+        # inside each block, definitions are in <span> tags with the class
+        # "css-9sn2pa". Sometimes there is another class, so use the un-greedy
+        # regex pattern .+? to go until the closing '>' of the opening <span>
+        # tag.
+        defs_pat = re.compile('<span class="css-9sn2pa.+?>(.*?)</span>', re.I|re.S)
 
         # need to extract definitions only if it's a certain pos type
         if pos in ["adjective", "noun", "verb"]:
 
-            # inside block_one, there are sub-blocks : one for each type of
-            # pos (adjective/noun/verb). Extract all these sub-blocks
-            section_pat = re.compile("<section(.*?)</section>", re.I|re.S)
-            sections = re.findall(section_pat, block_one)
-
-            # then for each block, I only extract the definitions if it matches
-            # the pos argument
-            pos_pat = re.compile('class="dbox-pg">(.*?)</span>', re.I|re.S)
+            # for each block, if the extracted POS matches the pos argument, add
+            # the definitions in defs (.+ because class is either luna-pos or
+            # pos)
+            pos_pat = re.compile('class=.+pos">(.*?)</span>', re.I|re.S)
             defs = []
 
-            for section in sections:
-                pos_extracted = re.search(pos_pat, section)
+            for block in blocks:
+                pos_extracted = re.search(pos_pat, block)
 
                 # some words (like cia) do not have a pos info so no pos
                 # extracted
@@ -135,15 +130,19 @@ def download_dictionary(word, pos="all"):
                 if pos not in pos_extracted:
                     continue
 
-                defs += re.findall(defs_p, section)
+                # remove possible sentence examples in definitions
+                defs += [ re.sub('<span class="luna-example.+$', '', x)
+                          for x in re.findall(defs_pat, block) ]
 
-        # otherwise extract all definitions available
+        # otherwise, concatenate all blocks and extract all definitions
+        # available. Remove possible sentence examples in definitions
         else:
-            defs = re.findall(defs_p, block_one)
+            defs = re.findall(defs_pat, " ".join(blocks))
+            defs = [ re.sub('<span class="luna-example.+$', '', x)
+                     for x in defs ]
 
-        # need to clean definitions of <a> and <span> tags. Use cleaner to
-        # replace these tags by empty string, Use .strip() to also clean some
-        # \r or \n.
+        # need to clean definitions of <span> tags. Use cleaner to replace these
+        # tags by empty string, Use .strip() to also clean some \r or \n.
         cleaner = re.compile('<.+?>', re.I|re.S)
         return [ re.sub(cleaner, '', x).strip() for x in defs ]
 
@@ -323,20 +322,24 @@ def download_word_definition(dict_name, word, pos="all", clean=True):
     return words
 
 if __name__ == '__main__':
-    print("Cambridge")
-    print(download_cambridge("rocking", "all"))
+    #print("Cambridge")
+    #print(download_cambridge("bite", "all"))
     #print("dictionary.com")
-    #print(download_dictionary("jeep", "all"))
-    print("\nCollins")
-    print(download_collins("building", "noun"))
+    #print(download_dictionary("wick", "all"))
+    #print("\nCollins")
+    #print(download_collins("building", "noun"))
     #print("\nOxford")
     #print("\n- ".join(download_oxford("wick", "adjective")))
 
-
-    #print("wick [Oxford - noun - no clean]")
-    #print(download_word_definition("Oxf", "wick", pos="noun", clean=False))
-    #print()
-    #print("car [Oxford - noun - clean)")
-    #print(download_word_definition("Oxf", "car", pos="noun"))
-    #print()
-    #print(download_oxford("change"))
+    print("dictionary.com -- alert [ADJECTIVE]")
+    print(download_dictionary("alert", "adjective"))
+    print()
+    print("dictionary.com -- alert [NOUN]")
+    print(download_dictionary("alert", "noun"))
+    print()
+    print("dictionary.com -- alert [VERB]")
+    print(download_dictionary("alert", "verb"))
+    print()
+    print("dictionary.com -- alert [ALL]")
+    print(download_dictionary("alert", "all"))
+    print()
