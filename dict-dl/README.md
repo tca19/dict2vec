@@ -24,8 +24,8 @@ Download definitions
 --------------------
 
 To download online definitions, you first need a file containing a list of words
-you want to download the definitions. This file needs to contain one word per
-line. We provide an example with the file 1000-words.txt.
+(one per line). The script will download the definitions for each of these
+words. We provide an example with the file 1000-words.txt.
 
 Then run `download_definitions.txt` with the filename of the file containing the
 list of words, like :
@@ -34,8 +34,23 @@ list of words, like :
 $ ./download_definitions.py 1000-words.txt
 ```
 
+You can specify which POS (part of speech) to download, for example to only
+download the "noun" definitions of words, run :
+
+```bash
+$ ./download_definitions.py 1000-words.txt -pos NOUN
+```
+
+The different POS available are :
+* `NOUN`
+* `VERB`
+* `ADJECTIVE`
+
+If no POS is given, all the definitions for each word will be downloaded.
+
 This will write all the fetched definitions in the file
-1000-words-definitions.txt. Each line will look like this :
+1000-words-definitions.txt (or 1000-words-definitions-noun.txt if you added the
+optional flag `-pos NOUN`). Each line will look like this :
 
 ```
             XXX     word    def1 def2 def3 def4 def5 def6
