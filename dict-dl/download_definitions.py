@@ -88,7 +88,7 @@ class ThreadWrite(Thread):
         self.of.close()
 
 def main(filename, pos="all", list_words=None, already_done=None):
-    # 0. to measure download time + use global to be able to modify exitFlag
+    # 0. to measure download time; use `global` to be able to modify exitFlag
     globalStart = time.time()
     global exitFlag
 
@@ -107,6 +107,8 @@ def main(filename, pos="all", list_words=None, already_done=None):
     print("Writing definitions in", output_fn)
 
     # 2. create queues containing all words to fetch (1 queue per dictionary)
+    # The words to download are in queue_{Cam, Dic, Col, Oxf}, the downloaded
+    # definitions are pushed in queue_msg
     queue_Cam = Queue() # no init val -> infinite size
     queue_Dic = Queue()
     queue_Col = Queue()
@@ -139,11 +141,11 @@ def main(filename, pos="all", list_words=None, already_done=None):
 
     # in my case, fastest fetching was achieved with 12 threads per core,
     # but since there are 4 types of threads (1 for each dictionary), it
-    # gives a number of thread per type equal to :
+    # gives a number of thread per dictionary equal to :
     # (NB_CORE * 12 ) / 4 = NB_CORE * 3
     NB_THREAD = cpu_count() * 3
 
-    # start all the download threads.
+    # start all the download threads
     for x in range(NB_THREAD):
         thread_Cam = ThreadDown("Cam", pos, queue_Cam, queue_msg)
         thread_Cam.start()
@@ -190,8 +192,11 @@ def main(filename, pos="all", list_words=None, already_done=None):
     print("S T A T S (# successful download / # requests)")
     print("==============================================")
     for dic in sorted(request_counter.keys()):
-        print("{}   {}/{}  ({:.1f}%)".format(dic, download_counter[dic],
-          request_counter[dic], download_counter[dic] * 100 / request_counter[dic]))
+        print("{}   {}/{}  ({:.1f}%)".format(
+            dic,
+            download_counter[dic],
+            request_counter[dic],
+            download_counter[dic] * 100 / request_counter[dic]))
 
     print("\nVocabulary size:", vocabulary_size)
     print("Results written in", output_fn)
@@ -199,7 +204,19 @@ def main(filename, pos="all", list_words=None, already_done=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("list_words", metavar="list-words",
-           help="file containing a list of words to download definitions")
+        help="""File containing a list of words (one per line). The script will
+        download the definitions for each word.""")
+    parser.add_argument("-pos", help="""Either NOUN/VERB/ADJECTIVE. If POS (Part
+        Of Speech) is given, the script will only download the definitions that
+        corresponds to that POS, not the other ones. By default, it downloads
+        the definitions for all POS""")
     args = parser.parse_args()
 
-    main(args.list_words)
+    if args.pos.lower() in ["noun", "verb", "adjective"]:
+        args.pos = args.pos.lower()
+    else:
+        print("WARNING: invalid POS argument \"{}\"".format(args.pos))
+        print("It can be NOUN, VERB or ADJECTIVE. Using default POS (ALL)\n")
+        args.pos = "all"
+
+    main(args.list_words, pos=args.pos)
