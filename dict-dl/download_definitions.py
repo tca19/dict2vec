@@ -102,8 +102,12 @@ def main(filename, pos="all", list_words=None, already_done=None):
                 vocabulary.add(line.strip())
 
     vocabulary_size = len(vocabulary)
-    # add "-definitions" before the file extension to create output filename
-    output_fn = splitext(filename)[0] + "-definitions.txt"
+    # add "-definitions" before the file extension to create output filename. If
+    # pos is noun/verb/adjective, add it also to the output filename
+    if pos in ["noun", "verb", "adjective"]:
+        output_fn = splitext(filename)[0] + "-definitions-{}.txt".format(pos)
+    else:
+        output_fn = splitext(filename)[0] + "-definitions.txt"
     print("Writing definitions in", output_fn)
 
     # 2. create queues containing all words to fetch (1 queue per dictionary)
@@ -209,12 +213,10 @@ if __name__ == '__main__':
     parser.add_argument("-pos", help="""Either NOUN/VERB/ADJECTIVE. If POS (Part
         Of Speech) is given, the script will only download the definitions that
         corresponds to that POS, not the other ones. By default, it downloads
-        the definitions for all POS""")
+        the definitions for all POS""", type=str.lower, default="all")
     args = parser.parse_args()
 
-    if args.pos.lower() in ["noun", "verb", "adjective"]:
-        args.pos = args.pos.lower()
-    else:
+    if args.pos not in ["noun", "verb", "adjective", "all"]:
         print("WARNING: invalid POS argument \"{}\"".format(args.pos))
         print("It can be NOUN, VERB or ADJECTIVE. Using default POS (ALL)\n")
         args.pos = "all"
