@@ -23,7 +23,7 @@ from queue import Queue
 from threading import Thread, Lock
 from multiprocessing import cpu_count
 from downloader import *
-from os.path import splitext
+from os.path import splitext, isfile
 import argparse
 import time
 import sys
@@ -70,7 +70,7 @@ class ThreadWrite(Thread):
     def __init__(self, filename, msg_queue):
         Thread.__init__(self)
         self.msg_queue = msg_queue
-        self.of = open(filename, "w")
+        self.of = open(filename, "a")
 
     def run(self):
         while not exitFlag:
@@ -102,13 +102,25 @@ def main(filename, pos="all", list_words=None, already_done=None):
                 vocabulary.add(line.strip())
 
     vocabulary_size = len(vocabulary)
-    # add "-definitions" before the file extension to create output filename. If
-    # pos is noun/verb/adjective, add it also to the output filename
+    # add "-definitions" before the file extension to create output filename.
+    # If pos is noun/verb/adjective, add it also to the output filename
     if pos in ["noun", "verb", "adjective"]:
         output_fn = splitext(filename)[0] + "-definitions-{}.txt".format(pos)
     else:
         output_fn = splitext(filename)[0] + "-definitions.txt"
     print("Writing definitions in", output_fn)
+
+    # look if some definitions have already been downloaded. If that's the case,
+    # add the words present in output_fn in the aleady_done variable
+    already_done = {"Cam": set(), "Dic": set(), "Col": set(), "Oxf": set()}
+    if isfile(output_fn): # need to read the file, first test if it exists
+        with open(output_fn) as f:
+            for line in f:
+                line = line.split()
+                # line[0] is dictionary name, line[1] the word (already) fetched
+                if len(line) < 2:
+                    continue
+                already_done[line[0]].add(line[1])
 
     # 2. create queues containing all words to fetch (1 queue per dictionary)
     # The words to download are in queue_{Cam, Dic, Col, Oxf}, the downloaded
@@ -196,11 +208,14 @@ def main(filename, pos="all", list_words=None, already_done=None):
     print("S T A T S (# successful download / # requests)")
     print("==============================================")
     for dic in sorted(request_counter.keys()):
-        print("{}   {}/{}  ({:.1f}%)".format(
-            dic,
-            download_counter[dic],
-            request_counter[dic],
-            download_counter[dic] * 100 / request_counter[dic]))
+        print("{}   {}/{}".format(
+              dic, download_counter[dic], request_counter[dic]),
+              end="")
+        if (request_counter[dic] > 0): # so no division by zero
+            print("  ({:.1f}%)".format(
+                download_counter[dic] * 100 / request_counter[dic]))
+        else:
+            print() # add newline if no percentage printed
 
     print("\nVocabulary size:", vocabulary_size)
     print("Results written in", output_fn)
