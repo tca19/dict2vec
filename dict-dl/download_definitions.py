@@ -99,17 +99,20 @@ def main(filename, pos="all"):
             vocabulary.add(line.strip())
 
     vocabulary_size = len(vocabulary)
+    print("Reading file {}: Done".format(filename))
+    print("Vocabulary size:", vocabulary_size)
+
     # add "-definitions" before the file extension to create output filename.
     # If pos is noun/verb/adjective, add it also to the output filename
     if pos in ["noun", "verb", "adjective"]:
         output_fn = splitext(filename)[0] + "-definitions-{}.txt".format(pos)
     else:
         output_fn = splitext(filename)[0] + "-definitions.txt"
-    print("Writing definitions in", output_fn)
 
     # look if some definitions have already been downloaded. If that's the case,
     # add the words present in output_fn in the aleady_done variable
     already_done = {"Cam": set(), "Dic": set(), "Col": set(), "Oxf": set()}
+    reusing = False
     if isfile(output_fn): # need to read the file, first test if it exists
         with open(output_fn) as f:
             for line in f:
@@ -118,6 +121,14 @@ def main(filename, pos="all"):
                 if len(line) < 2:
                     continue
                 already_done[line[0]].add(line[1])
+                reusing = True
+    if reusing:
+        print("\nSome definitions have already been downloaded into {}.".format(
+            output_fn))
+        print("Reusing: ")
+        for dic in already_done:
+            print("  - {} definitions from {}".format(
+                len(already_done[dic]), dic))
 
     # 2. create queues containing all words to fetch (1 queue per dictionary)
     # The words to download are in queue_{Cam, Dic, Col, Oxf}, the downloaded
@@ -207,8 +218,7 @@ def main(filename, pos="all"):
         else:
             print() # add newline if no percentage printed
 
-    print("\nVocabulary size:", vocabulary_size)
-    print("Results written in", output_fn)
+    print("\n-> Results written in", output_fn)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
