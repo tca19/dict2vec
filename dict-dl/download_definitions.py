@@ -87,19 +87,16 @@ class ThreadWrite(Thread):
 
         self.of.close()
 
-def main(filename, pos="all", list_words=None, already_done=None):
+def main(filename, pos="all"):
     # 0. to measure download time; use `global` to be able to modify exitFlag
     globalStart = time.time()
     global exitFlag
 
-    # 1. load all words from the filename argument (or use list_words if given)
-    if list_words is not None:
-        vocabulary = list_words
-    else:
-        vocabulary = set()
-        with open(filename) as f:
-            for line in f:
-                vocabulary.add(line.strip())
+    # 1. read the file to get the list of words to download definitions
+    vocabulary = set()
+    with open(filename) as f:
+        for line in f:
+            vocabulary.add(line.strip())
 
     vocabulary_size = len(vocabulary)
     # add "-definitions" before the file extension to create output filename.
@@ -132,22 +129,15 @@ def main(filename, pos="all", list_words=None, already_done=None):
     queue_msg = Queue()
 
     # only add words in queue if they are not already done
-    if already_done is None:
-        for w in vocabulary:
+    for w in vocabulary:
+        if not w in already_done["Cam"]:
             queue_Cam.put(w)
+        if not w in already_done["Dic"]:
             queue_Dic.put(w)
+        if not w in already_done["Col"]:
             queue_Col.put(w)
+        if not w in already_done["Oxf"]:
             queue_Oxf.put(w)
-    else:
-        for w in vocabulary:
-            if not w in already_done["Cam"]:
-                queue_Cam.put(w)
-            if not w in already_done["Dic"]:
-                queue_Dic.put(w)
-            if not w in already_done["Col"]:
-                queue_Col.put(w)
-            if not w in already_done["Oxf"]:
-                queue_Oxf.put(w)
 
     # 3. create threads
     threads = []
