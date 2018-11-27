@@ -27,8 +27,8 @@ import numpy as np
 import scipy.stats as st
 
 FILE_DIR = "data/eval/"
-results = dict()
-oov     = dict()
+results      = dict()
+missed_pairs = dict()
 
 
 def tanimotoSim(v1, v2):
@@ -98,14 +98,14 @@ def evaluate(filename):
 
             rho, p_val = st.spearmanr(file_similarity, embedding_similarity)
             results[filename].append(rho)
-            oov[filename] = (found, found+not_found)
+            missed_pairs[filename] = (found, found+not_found)
 
 
 def stats():
     """Compute statistics on results"""
     title = "{}| {}| {}| {}| {}| {}".format("Filename".ljust(16),
                               "AVG".ljust(5), "MIN".ljust(5), "MAX".ljust(5),
-                              "STD".ljust(5), "oov".ljust(5))
+                              "STD".ljust(5), "Missed pairs".ljust(12))
     print(title)
     print("="*len(title))
 
@@ -121,14 +121,14 @@ def stats():
         std /= float(len(results[filename]))
         std = math.sqrt(std)
 
-        weighted_avg += oov[filename][0] * average
-        total_found  += oov[filename][0]
+        weighted_avg += missed_pairs[filename][0] * average
+        total_found  += missed_pairs[filename][0]
 
-        ratio_oov = 100 - (oov[filename][0] /  oov[filename][1]) * 100
+        ratio_missed_pairs = 100 - (missed_pairs[filename][0] /  missed_pairs[filename][1]) * 100
 
         print("{0}| {1:.3f}| {2:.3f}| {3:.3f}| {4:.3f}|  {5}%".format(
               filename.ljust(16),
-              average, minimum, maximum, std, int(ratio_oov)))
+              average, minimum, maximum, std, round(ratio_missed_pairs)))
 
     print("-"*len(title))
     print("{0}| {1:.3f}".format("W.Average".ljust(16),
