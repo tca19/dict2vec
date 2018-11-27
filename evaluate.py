@@ -29,6 +29,7 @@ import scipy.stats as st
 FILE_DIR = "data/eval/"
 results      = dict()
 missed_pairs = dict()
+missed_words = dict()
 
 
 def tanimotoSim(v1, v2):
@@ -76,17 +77,24 @@ def evaluate(filename):
 
     # step 1 : iterate over each evaluation data file and compute spearman
     for filename in results:
-        found, not_found = 0, 0
+        pairs_found, pairs_not_found = 0, 0
+        words_not_found, total_words = 0, 0
         with open(os.path.join(FILE_DIR, filename)) as f:
             file_similarity = []
             embedding_similarity = []
             for line in f:
                 w1, w2, val = line.split()
                 w1, w2, val = w1.lower(), w2.lower(), float(val)
+                total_words += 2
+                if not w1 in wordToNum:
+                    words_not_found += 1
+                if not w2 in wordToNum:
+                    words_not_found += 1
+
                 if not w1 in wordToNum or not w2 in wordToNum:
-                    not_found += 1
+                    pairs_not_found += 1
                 else:
-                    found += 1
+                    pairs_found += 1
                     v1, v2 = mat[wordToNum[w1]], mat[wordToNum[w2]]
                     cosine = cosineSim(v1, v2)
                     file_similarity.append(val)
@@ -98,14 +106,15 @@ def evaluate(filename):
 
             rho, p_val = st.spearmanr(file_similarity, embedding_similarity)
             results[filename].append(rho)
-            missed_pairs[filename] = (found, found+not_found)
+            missed_pairs[filename] = (pairs_found, pairs_found+pairs_not_found)
+            missed_words[filename] = (words_not_found, total_words)
 
 
 def stats():
     """Compute statistics on results"""
-    title = "{}| {}| {}| {}| {}| {}".format("Filename".ljust(16),
+    title = "{}| {}| {}| {}| {}| {} ".format("Filename".ljust(16),
                               "AVG".ljust(5), "MIN".ljust(5), "MAX".ljust(5),
-                              "STD".ljust(5), "Missed pairs".ljust(12))
+                              "STD".ljust(5), "Missed words/pairs")
     print(title)
     print("="*len(title))
 
@@ -124,11 +133,15 @@ def stats():
         weighted_avg += missed_pairs[filename][0] * average
         total_found  += missed_pairs[filename][0]
 
-        ratio_missed_pairs = 100 - (missed_pairs[filename][0] /  missed_pairs[filename][1]) * 100
+        # 1 - found/total = missed/total
+        ratio_words = missed_words[filename][0] / missed_words[filename][1]
+        ratio_pairs = 1 - missed_pairs[filename][0] / missed_pairs[filename][1]
+        missed_infos = "{:.0f}% / {:.0f}%".format(
+                round(ratio_words*100), round(ratio_pairs*100))
 
-        print("{0}| {1:.3f}| {2:.3f}| {3:.3f}| {4:.3f}|  {5}%".format(
+        print("{}| {:.3f}| {:.3f}| {:.3f}| {:.3f}| {} ".format(
               filename.ljust(16),
-              average, minimum, maximum, std, round(ratio_missed_pairs)))
+              average, minimum, maximum, std, missed_infos.center(20)))
 
     print("-"*len(title))
     print("{0}| {1:.3f}".format("W.Average".ljust(16),
