@@ -92,6 +92,7 @@ similarity datasets, as well as the OOV rate for each dataset and the weighted
 average based on the number of pairs evaluated on each dataset. We provide the
 evaluation datasets in `data/eval/`.
 
+  * Card-660     (Pilehvar et al., 2018)
   * MC-30        (Miller and Charles, 1991)
   * MEN          (Bruni et al., 2014)
   * MTurk-287    (Radinsky et al., 2011)
@@ -129,7 +130,7 @@ We provide word embeddings trained with the Dict2vec model on the July 2017
 English version of Wikipedia. Vectors with dimension 100 (resp. 200) were
 trained on the first 50M (resp. 200M) words of this corpus whereas vectors with
 dimension 300 were trained on the full corpus. First line is composed of (number
-of words / dimension). Each following line contain the word and all its space
+of words / dimension). Each following line contains the word and all its space
 separated vector values.
 
 You need to extract the embeddings before using them. Use the following command
@@ -164,16 +165,16 @@ the paper by running the script `wiki-dl.sh`.
 $ ./wiki-dl.sh
 ```
 
-This script will download the full English Wikipedia dump of April 2018,
+This script will download the full English Wikipedia dump of November 2018,
 uncompress it and directly feed it into [Mahoney's parser
 script](http://mattmahoney.net/dc/textdata#appendixa). It also cuts the entire
 dump into two smaller datasets : one containing the first 50M tokens
 (enwiki-50M), and the other one containing the first 200M tokens (enwiki-200M).
 We report the following filesizes :
 
-  * enwiki-50M  : 283MB
-  * enwiki-200M : 1.1GB
-  * enwiki-full : 24GB
+  * enwiki-50M  : 296MB
+  * enwiki-200M : 1.16GB
+  * enwiki-full : 26GB
 
 
 Cite this paper
