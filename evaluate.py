@@ -77,7 +77,7 @@ def evaluate(filename):
 
     # step 1 : iterate over each evaluation data file and compute spearman
     for filename in results:
-        pairs_found, pairs_not_found = 0, 0
+        pairs_not_found, total_pairs = 0, 0
         words_not_found, total_words = 0, 0
         with open(os.path.join(FILE_DIR, filename)) as f:
             file_similarity = []
@@ -86,6 +86,7 @@ def evaluate(filename):
                 w1, w2, val = line.split()
                 w1, w2, val = w1.lower(), w2.lower(), float(val)
                 total_words += 2
+                total_pairs += 1
                 if not w1 in wordToNum:
                     words_not_found += 1
                 if not w2 in wordToNum:
@@ -94,7 +95,6 @@ def evaluate(filename):
                 if not w1 in wordToNum or not w2 in wordToNum:
                     pairs_not_found += 1
                 else:
-                    pairs_found += 1
                     v1, v2 = mat[wordToNum[w1]], mat[wordToNum[w2]]
                     cosine = cosineSim(v1, v2)
                     file_similarity.append(val)
@@ -106,7 +106,7 @@ def evaluate(filename):
 
             rho, p_val = st.spearmanr(file_similarity, embedding_similarity)
             results[filename].append(rho)
-            missed_pairs[filename] = (pairs_found, pairs_found+pairs_not_found)
+            missed_pairs[filename] = (pairs_not_found, total_pairs)
             missed_words[filename] = (words_not_found, total_words)
 
 
@@ -130,12 +130,16 @@ def stats():
         std /= float(len(results[filename]))
         std = math.sqrt(std)
 
-        weighted_avg += missed_pairs[filename][0] * average
-        total_found  += missed_pairs[filename][0]
+        # For the weighted average, each file has a weight proportional to the
+        # number of pairs on which it has been evaluated.
+        # pairs evaluated = pairs_found = total_pairs - number of missed pairs
+        pairs_found = missed_pairs[filename][1] - missed_pairs[filename][0]
+        weighted_avg += pairs_found * average
+        total_found  += pairs_found
 
-        # 1 - found/total = missed/total
+        # ratio = number of missed / total
         ratio_words = missed_words[filename][0] / missed_words[filename][1]
-        ratio_pairs = 1 - missed_pairs[filename][0] / missed_pairs[filename][1]
+        ratio_pairs = missed_pairs[filename][0] / missed_pairs[filename][1]
         missed_infos = "{:.0f}% / {:.0f}%".format(
                 round(ratio_words*100), round(ratio_pairs*100))
 
