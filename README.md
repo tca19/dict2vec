@@ -6,18 +6,18 @@ Dict2vec is a framework to learn word embeddings using lexical dictionaries.
 Requirements
 ------------
 
-To compile and run our Dict2vec model, you will need :
+To compile and run our Dict2vec model, you will need:
 
   * gcc (4.8.4 or newer)
   * make
 
-To evaluate the learned embeddings on the word similarity task, you will need :
+To evaluate the learned embeddings on the word similarity task, you will need:
 
   * python3
   * numpy (python3 version)
   * scipy (python3 version)
 
-To fetch definitions from online dictionaries, you will need :
+To fetch definitions from online dictionaries, you will need:
 
   * python3
 
@@ -29,8 +29,7 @@ Run the code
 
 Before running the example script, open `demo-train.sh` and modify the line 62
 so the variable THREADS is equal to the number of cores in your machine. By
-default, it is equal to 8, so if your machine only has 4 cores, update it to be
-:
+default, it is equal to 8, so if your machine only has 4 cores, update it to be:
 
 ```
 THREADS=4
@@ -42,7 +41,7 @@ Then run `demo-train.sh` to have a quick glimpse of Dict2vec performances.
 $ ./demo-train.sh
 ```
 
-This will :
+This will:
 
   * download a training file of 50M words
   * download strong and weak pairs for training
@@ -50,7 +49,7 @@ This will :
   * train word embeddings with a dimension of 100
   * evaluate the embeddings on 11 word similarity datasets
 
-To directly compile the code and interact with the sotfware, run :
+To directly compile the code and interact with the sotfware, run:
 
 ```bash
 $ make
@@ -65,26 +64,27 @@ Evaluate word embeddings
 ------------------------
 
 Run `evaluate.py` to evaluate a trained word embedding. Once the evaluation is
-done, you get something like this :
+done, you get something like this:
 
 ```bash
 $ ./evaluate.py embeddings.txt
-Filename        | AVG  | MIN  | MAX  | STD  | oov
-===================================================
-MC-30.txt       | 0.848| 0.848| 0.848| 0.000|  0%
-MEN-TR-3k.txt   | 0.726| 0.726| 0.726| 0.000|  0%
-MTurk-287.txt   | 0.659| 0.659| 0.659| 0.000|  0%
-MTurk-771.txt   | 0.684| 0.684| 0.684| 0.000|  0%
-RG-65.txt       | 0.833| 0.833| 0.833| 0.000|  0%
-RW-STANFORD.txt | 0.503| 0.503| 0.503| 0.000|  36%
-SimLex999.txt   | 0.463| 0.463| 0.463| 0.000|  0%
-SimVerb-3500.txt| 0.399| 0.399| 0.399| 0.000|  3%
-WS-353-ALL.txt  | 0.743| 0.743| 0.743| 0.000|  0%
-WS-353-REL.txt  | 0.670| 0.670| 0.670| 0.000|  0%
-WS-353-SIM.txt  | 0.763| 0.763| 0.763| 0.000|  0%
-YP-130.txt      | 0.630| 0.630| 0.630| 0.000|  3%
----------------------------------------------------
-W.Average       | 0.567
+Filename        | AVG  | MIN  | MAX  | STD  | Missed words/pairs
+=================================================================
+Card-660.txt    | 0.598| 0.598| 0.598| 0.000|      33% / 50%
+MC-30.txt       | 0.861| 0.861| 0.861| 0.000|       0% / 0%
+MEN-TR-3k.txt   | 0.746| 0.746| 0.746| 0.000|       0% / 0%
+MTurk-287.txt   | 0.648| 0.648| 0.648| 0.000|       0% / 0%
+MTurk-771.txt   | 0.675| 0.675| 0.675| 0.000|       0% / 0%
+RG-65.txt       | 0.860| 0.860| 0.860| 0.000|       0% / 0%
+RW-STANFORD.txt | 0.505| 0.505| 0.505| 0.000|       1% / 2%
+SimLex999.txt   | 0.452| 0.452| 0.452| 0.000|       0% / 0%
+SimVerb-3500.txt| 0.417| 0.417| 0.417| 0.000|       0% / 0%
+WS-353-ALL.txt  | 0.725| 0.725| 0.725| 0.000|       0% / 0%
+WS-353-REL.txt  | 0.637| 0.637| 0.637| 0.000|       0% / 0%
+WS-353-SIM.txt  | 0.741| 0.741| 0.741| 0.000|       0% / 0%
+YP-130.txt      | 0.635| 0.635| 0.635| 0.000|       0% / 0%
+-----------------------------------------------------------------
+W.Average       | 0.570
 ```
 
 The script computes the Spearman's rank correlation score for some word
@@ -106,18 +106,18 @@ evaluation datasets in `data/eval/`.
 
 This script is also able to evaluate several embeddings files at the same time,
 and compute the average score as well as the standard deviation. To evaluate
-several embeddings, simply add the filenames as arguments :
+several embeddings, simply add the filenames as arguments:
 
 ```bash
 $ ./evaluate.py embedding-1.txt embedding-2.txt embedding-3.txt
 ```
 
-This script will report :
+This script will report:
 
-  * AVG : the average score of all embeddings for each dataset
-  * MIN : the minimum score of all embeddings for each dataset
-  * MAX : the maximum score of all embeddings for each dataset
-  * STD : the standard deviation score of all embeddings for each dataset
+  * AVG: the average score of all embeddings for each dataset
+  * MIN: the minimum score of all embeddings for each dataset
+  * MAX: the maximum score of all embeddings for each dataset
+  * STD: the standard deviation score of all embeddings for each dataset
 
 When you evaluate only one embedding, you get the same value for AVG/MIN/MAX and
 a standard deviation STD of 0.
@@ -134,7 +134,7 @@ of words / dimension). Each following line contains the word and all its space
 separated vector values.
 
 You need to extract the embeddings before using them. Use the following command
-to do so :
+to do so:
 ```bash
 $ tar xvjf dict2vec100.tar.bz2
 ```
@@ -168,13 +168,13 @@ $ ./wiki-dl.sh
 This script will download the full English Wikipedia dump of November 2018,
 uncompress it and directly feed it into [Mahoney's parser
 script](http://mattmahoney.net/dc/textdata#appendixa). It also cuts the entire
-dump into two smaller datasets : one containing the first 50M tokens
+dump into two smaller datasets: one containing the first 50M tokens
 (enwiki-50M), and the other one containing the first 200M tokens (enwiki-200M).
-We report the following filesizes :
+We report the following filesizes:
 
-  * enwiki-50M  : 296MB
-  * enwiki-200M : 1.16GB
-  * enwiki-full : 26GB
+  * enwiki-50M: 296MB
+  * enwiki-200M: 1.16GB
+  * enwiki-full: 26GB
 
 
 Cite this paper
