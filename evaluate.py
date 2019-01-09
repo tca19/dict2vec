@@ -71,6 +71,9 @@ def evaluate(filename):
         for line in f:
             line = line.split()
             word, vals = line[0], list(map(float, line[1:]))
+            # if number of vals is different from nb_dims, bad vector, drop it
+            if len(vals) != nb_dims:
+                continue
             mat[count] = np.array(vals)
             wordToNum[word] = count
             count += 1
