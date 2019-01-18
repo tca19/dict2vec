@@ -130,16 +130,21 @@ def download_dictionary(word, pos="all"):
                 if pos not in pos_extracted:
                     continue
 
-                # remove possible sentence examples in definitions
+                # remove possible sentence examples in definitions and possible
+                # non informative labels (like "Archaic" in one of the
+                # definition of "wick")
                 defs += [ re.sub('<span class="luna-example.+$', '', x)
-                          for x in re.findall(defs_pat, block) ]
+                          for x in re.findall(defs_pat, block)
+                          if "luna-label" not in x ]
 
         # otherwise, concatenate all blocks and extract all definitions
-        # available. Remove possible sentence examples in definitions
+        # available. Remove possible sentence examples in definitions and
+        # possible non informative labels (like "Archaic" in one of the
+        # definition of "wick")
         else:
             defs = re.findall(defs_pat, " ".join(blocks))
             defs = [ re.sub('<span class="luna-example.+$', '', x)
-                     for x in defs if "luna-labset" not in x]
+                     for x in defs if "luna-label" not in x]
 
         # need to clean definitions of <span> tags. Use cleaner to replace these
         # tags by empty string, Use .strip() to also clean some \r or \n.
