@@ -96,17 +96,17 @@ def download_dictionary(word, pos="all"):
     try:
         html = urllib.request.urlopen(URL).read().decode('utf-8')
 
-        # definitions are in <section> tags with class "css-1sdcacc". Each POS
+        # definitions are in <section> tags with class "css-171jvig". Each POS
         # type has its own <section>, so extract them all.
-        block_pat = re.compile('<section class="css-1sdcacc(.*?)</section>',
+        block_pat = re.compile('<section class="css-171jvig(.*?)</section>',
                                re.I|re.S)
         blocks = re.findall(block_pat, html)
 
         # inside each block, definitions are in <span> tags with the class
-        # "css-9sn2pa". Sometimes there is another class, so use the un-greedy
+        # "css-1e3ziqc". Sometimes there is another class, so use the un-greedy
         # regex pattern .+? to go until the closing '>' of the opening <span>
         # tag.
-        defs_pat = re.compile('<span class="css-9sn2pa.+?>(.*?)</span>', re.I|re.S)
+        defs_pat = re.compile('<span class=".+?css-1e3ziqc.+?>(.*?)</span>', re.I|re.S)
 
         # need to extract definitions only if it's a certain pos type
         if pos in ["adjective", "noun", "verb"]:
@@ -139,7 +139,7 @@ def download_dictionary(word, pos="all"):
         else:
             defs = re.findall(defs_pat, " ".join(blocks))
             defs = [ re.sub('<span class="luna-example.+$', '', x)
-                     for x in defs ]
+                     for x in defs if "luna-labset" not in x]
 
         # need to clean definitions of <span> tags. Use cleaner to replace these
         # tags by empty string, Use .strip() to also clean some \r or \n.
