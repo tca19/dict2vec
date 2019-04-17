@@ -21,14 +21,14 @@
 
 DATA_DIR=./data
 
-echo "Downloading English Wikipedia dump of November 2018..."
-URL=https://dumps.wikimedia.org/enwiki/20181120/enwiki-20181120-pages-articles-multistream.xml.bz2
+echo "Downloading English Wikipedia dump of March 2019..."
+URL=https://dumps.wikimedia.org/enwiki/20190320/enwiki-20190320-pages-articles-multistream.xml.bz2
 time wget -qO- $URL | bzip2 -d | perl wiki-parser.pl > "$DATA_DIR/enwiki-full"
 echo "Done."
 echo
 
 echo "Creating enwiki-50M and enwiki-200M..."
-head -c 296016287 "$DATA_DIR/enwiki-full" > "$DATA_DIR/enwiki-50M"
-head -c 1164344147 "$DATA_DIR/enwiki-full" > "$DATA_DIR/enwiki-200M"
+#head -c 296016287 "$DATA_DIR/enwiki-full" > "$DATA_DIR/enwiki-50M"
+#head -c 1164344147 "$DATA_DIR/enwiki-full" > "$DATA_DIR/enwiki-200M"
 echo "Done."
 echo
