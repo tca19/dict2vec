@@ -142,9 +142,9 @@ $ tar xvjf dict2vec100.tar.bz2
 If you use these word embeddings, please cite the paper as explained in section
 [Cite this paper](#cite-this-paper).
 
-  * [dimension 100](https://s3.us-east-2.amazonaws.com/dict2vec-data/dict2vec100.tar.bz2) (85MB)
-  * [dimension 200](https://s3.us-east-2.amazonaws.com/dict2vec-data/dict2vec200.tar.bz2) (354MB)
-  * [dimension 300](https://s3.us-east-2.amazonaws.com/dict2vec-data/dict2vec300.tar.bz2) (4.3GB)
+  * [dimension 100](https://dict2vec.s3.amazonaws.com/dict2vec100.tar.bz2) (85MB)
+  * [dimension 200](https://dict2vec.s3.amazonaws.com/dict2vec200.tar.bz2) (354MB)
+  * [dimension 300](https://dict2vec.s3.amazonaws.com/dict2vec300.tar.bz2) (4.3GB)
 
 
 Download more data
