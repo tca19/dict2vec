@@ -25,7 +25,7 @@ DATA_DIR=./data
 TEXT_DATA=enwiki-50M
 if [ ! -e "$DATA_DIR/$TEXT_DATA" ]; then
   echo "Downloading training file $TEXT_DATA..."
-  wget -qO- https://s3.us-east-2.amazonaws.com/dict2vec-data/enwiki-50M.tar.bz2 \
+  wget -qO- https://dict2vec.s3.amazonaws.com/enwiki-50M.tar.bz2 \
   | tar -jxv -C $DATA_DIR
   echo "Done."
   echo
@@ -35,7 +35,7 @@ fi
 STRONG_PAIRS=strong-pairs.txt
 if [ ! -e "$DATA_DIR/$STRONG_PAIRS" ]; then
   echo "Downloading file $STRONG_PAIRS..."
-  wget -qO- https://s3.us-east-2.amazonaws.com/dict2vec-data/strong-pairs.tar.bz2 \
+  wget -qO- https://dict2vec.s3.amazonaws.com/strong-pairs.tar.bz2 \
   | tar -jxv -C $DATA_DIR
   echo "Done."
   echo
@@ -45,7 +45,7 @@ fi
 WEAK_PAIRS=weak-pairs.txt
 if [ ! -e "$DATA_DIR/$WEAK_PAIRS" ]; then
   echo "Downloading file $WEAK_PAIRS..."
-  wget -qO- https://s3.us-east-2.amazonaws.com/dict2vec-data/weak-pairs.tar.bz2 \
+  wget -qO- https://dict2vec.s3.amazonaws.com/weak-pairs.tar.bz2 \
   | tar -jxv -C $DATA_DIR
   echo "Done."
   echo
