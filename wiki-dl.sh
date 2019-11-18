@@ -28,7 +28,7 @@ echo "Done."
 echo
 
 echo "Creating enwiki-50M and enwiki-200M..."
-head -c 296034362 "$DATA_DIR/enwiki-full" > "$DATA_DIR/enwiki-50M"
-head -c 1164573534 "$DATA_DIR/enwiki-full" > "$DATA_DIR/enwiki-200M"
+head -c 295988890 "$DATA_DIR/enwiki-full" > "$DATA_DIR/enwiki-50M"
+head -c 1164667415 "$DATA_DIR/enwiki-full" > "$DATA_DIR/enwiki-200M"
 echo "Done."
 echo
