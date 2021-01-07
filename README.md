@@ -3,6 +3,14 @@ Dict2vec
 
 Dict2vec is a framework to learn word embeddings using lexical dictionaries.
 
+### Preamble
+
+This work is one of my contributions of my PhD thesis entitled "Improving
+methods to learn word representations for efficient semantic similarities
+computations" in which I propose new methods to learn better word embeddings.
+You can find and read my thesis freely available in [one of my other Github
+repository](https://github.com/tca19/phd-thesis).
+
 Requirements
 ------------
 
