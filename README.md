@@ -11,6 +11,8 @@ CONTENT
 	  2. Evaluate word embeddings
 	  3. Download Dict2vec pre-trained word embeddings
 	  4. Download Wikipedia training corpora and dictionary definitions
+	5. AUTHOR
+	6. COPYRIGHT
                          ------------------------------
 
 1. PREAMBLE
@@ -30,7 +32,7 @@ CONTENT
 	Wikipedia training corpora, to fetch dictionary definitions from  online
 	dictionaries and to generate strong and weak pairs from the definitions.
 	Related  paper  describing  the  Dict2vec  model   can   be   found   at
-        https://www.aclweb.org/anthology/D17-1024/.
+	https://www.aclweb.org/anthology/D17-1024/.
 
 	If you use this repository, please cite:
 
@@ -55,7 +57,7 @@ CONTENT
 	  - make
 
 	To evaluate the learned embeddings on  the  word  similarity  task,  you
-        will need to install on you system:
+	will need to install on you system:
 	  - python3
 	  - numpy (python3 version)
 	  - scipy (python3 version)
@@ -163,13 +165,13 @@ CONTENT
 	First line is composed of (number of words / dimension).  Each following
 	line contains the word  and  all  its  space  separated  vector  values.
 	If you use these word embeddings, please cite the paper as explained  in
-        section "2. ABOUT".
+	section "2. ABOUT".
 	  - dimension 100 [https://mega.nz/file/Y0RmyI5S#SlupdHC2R7wMpHYWhaN9wYEKxsxEmZO_7Z-64hHnwqM]
 	  - dimension 200 [https://mega.nz/file/UowxyBKA#nbiP5Os6GXmk-dGFEZkuj4aS0Uewcd81Z2NWGvcc460]
 	  - dimension 300 [https://mega.nz/file/Et53UJrB#O4TAagLBgrBRnEi2liWzhOHuAaVsxUqKRfARYgK_n4o]
 
 	You need to extract the embeddings before using them.  Use the following
-        command to do so:
+	command to do so:
 
 	tar xvjf dict2vec100.tar.bz2
 
@@ -183,7 +185,7 @@ CONTENT
 	[1].  It also cuts the  entire  dump  into  two  smaller  datasets:  one
 	containing  the  first  50M  tokens  (enwiki-50M),  and  the  other  one
 	containing the first 200M tokens (enwiki-200M).   The  training  corpora
-        have the following filesizes:
+	have the following filesizes:
 	  - enwiki-50M: 296MB
 	  - enwiki-200M: 1.16GB
 	  - enwiki-full: 29.5GB
@@ -194,3 +196,12 @@ CONTENT
 	definitions and generate strong/weak pairs based on  these  definitions.
 	More information and full documentation  can  be  found  in  the  folder
 	dict-dl/ of this repository.
+
+5. AUTHOR
+
+	Written  by  Julien  Tissier  <30314448+tca19@users.noreply.github.com>.
+
+6. COPYRIGHT
+
+	This software is licensed under the GNU GPLv3 license.  See the  LICENSE
+	file for more details.
